@@ -1,0 +1,47 @@
+extends ../layout
+
+block content
+    div
+        ul
+          li
+            a(href='/') Главная страница
+    h1= title
+    button(id='create_payments') Создать
+    table
+        tr 
+            th id
+            th Заказ
+            th Тип платежа
+            th Сумма платежа
+        each item in payments
+            tr
+                td= item.id
+                td
+                    a(href='/payments/' + item.id)=item.order_label
+                td= item.payment_type_label
+                td= item.amount
+
+    div#create_payments_popup.q-window
+          div.q-window-block(style="width:400px;height:220px;margin:-150px 0 0 -400px")
+            div.q-window-header Создать платеж
+              a#create_payments_popup_close(style="position: relative;left: 300px;") X
+            div.q-window-body.q-form
+              div.q-window-filters-form
+                div.q-form-data
+                  label(for="inpOrder") Заказ
+                  select#inpOrder
+                    each item in orders
+                        option(value= item.id)= item.label
+                div.q-form-data
+                  label(for="inpPT") Тип платежа
+                  select#inpPT
+                    each item in payment_types
+                        option(value= item.id)= item.label
+                div.q-form-data
+                  label(for="inpAmount") Сумма
+                  input#inpAmount(type="text")
+
+            div.q-buttons
+              a#submit_create_payments Создать
+              br
+              a#cancel_create_payments Отменить

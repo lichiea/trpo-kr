@@ -1,0 +1,22 @@
+extends ../layout
+
+block content
+    div
+        ul
+          li
+            a(href='/payments') Платежи
+    h1= title
+    div
+      form
+        fieldset
+          label Номер
+          input(type='text', disabled=true, value=payment.id)
+          br
+          label Заказ
+          input(type='text', disabled=true, value=payment.order_label)
+          br
+          label Тип платежа
+          input(type='text', disabled=true, value=payment.payment_type_label)
+          br
+          label Сумма
+          input(type='text', disabled=true, value=payment.amount)

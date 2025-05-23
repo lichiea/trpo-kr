@@ -1,0 +1,66 @@
+extends ../layout
+
+block content
+    div
+        ul
+            li
+                a(href='/orders') Заказы
+    h1= title
+    
+    button(id='update_order') Обновить
+    
+    div
+        form
+            fieldset
+                label Название
+                if can_view_users
+                    input#editLabel(type='text', value=order.label)
+                else
+                    input#editLabel(type='text', disabled=true, value=order.label)
+                
+                br
+                
+                label Клиент
+                if can_view_users
+                    select#editClient
+                        each client in clients
+                            option(value=client.id, selected=(client.id == order.id_client))= client.label
+                else
+                    select#editClient(disabled)
+                        each client in clients
+                            option(value=client.id, selected=(client.id == order.id_client))= client.label
+                
+                br
+                
+                label Статус
+                if can_view_payments
+                    select#status-select
+                        each status in order_statuses
+                            option(value=status.id, selected=(status.id == order.order_status_id))= status.label
+                else
+                    select#status-select(disabled)
+                        each status in order_statuses
+                            option(value=status.id, selected=(status.id == order.order_status_id))= status.label
+                
+                br
+                
+                label Сумма
+                if can_view_users
+                    input#editAmount(type='text', value=order.amount)
+                else
+                    input#editAmount(type='text', disabled=true, value=order.amount)
+                br
+                if !can_view_payments
+                    label Элементы заказа
+                      table
+                        tr 
+                            th id
+                            th Название
+                            th Сумма
+                        each item in order_items.filter(item => item.id_order == order.id)
+                            tr
+                                td= item.id
+                                td= item.label
+                                td= item.amount
+
+
