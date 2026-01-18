@@ -1,25 +1,408 @@
+//- index.pug
 extends layout
 
 block content
-    div
-        ul
-          li
-            a(href='/') Главная страница
-            if user
-              if can_view_clients
-                li
-                  a(href='/clients') Клиенты
-              if can_view_orders
-                li
-                  a(href='/orders') Заказы
-              if can_view_payments
-                li
-                  a(href='/payments') Платежи
-              if can_view_users
-                li
-                  a(href='/users') Пользователи
-              li
-                a(href='', id='Logout') Выйти
-            else
-                li
-                    a(href='', id='Login') Войти
+
+  if user
+
+    // Первое навигационное поле
+    header.header
+      .container
+        .header-content
+          a.logo(href='/')
+            i.fas.fa-spray-can
+            span Клининговая компания
+          if user && user.login
+            .user-info
+              span.user-name= user.login
+              a.btn.btn-secondary(href='', id='Logout') Выйти
+          else
+            nav.main-nav
+              a(href='/services') Услуги
+              a(href='/about') О компании
+            a.btn.btn-secondary(href='', id='Login') Войти
+
+    section.dashboard
+      .container
+        h2 Панель управления
+        p.subtitle Быстрый доступ к основным функциям системы
+        
+        .dashboard-grid
+          if can_view_orders
+            a.dashboard-card(href='/orders')
+              .dashboard-icon
+                i.fas.fa-clipboard-list
+              h3 Заказы
+              p Управление заказами и отслеживание статусов
+          if can_view_services
+            a.dashboard-card(href='/services')
+              .dashboard-icon
+                i.fas.fa-spray-can-sparkles
+              h3 Услуги
+              p Управление перечнем услуг
+          if can_view_clients
+            a.dashboard-card(href='/clients')
+              .dashboard-icon
+                i.fas.fa-users
+              h3 Клиенты
+              p База данных клиентов
+          if can_view_employees
+            a.dashboard-card(href='/employees')
+              .dashboard-icon
+                i.fas.fa-user-tie
+              h3 Сотрудники
+              p Управление персоналом
+          if can_view_teams
+            a.dashboard-card(href='/teams')
+              .dashboard-icon
+                i.fas.fa-id-badge
+              h3 Бригады
+              p Управление бригадами и их составами
+          if can_view_equipments
+            a.dashboard-card(href='/equipments')
+              .dashboard-icon
+                i.fas.fa-tools
+              h3 Инвентарь
+              p Учет оборудования и расходных материалов
+          if can_view_transports
+            a.dashboard-card(href='/transports')
+              .dashboard-icon
+                i.fas.fa-truck
+              h3 Транспорт
+              p Управление транспортными средствами
+          if can_view_pricelists
+            a.dashboard-card(href='/pricelists')
+              .dashboard-icon
+                i.fas.fa-tags
+              h3 Прейскуранты
+              p Учет цен на услуги
+          if can_view_users
+            a.dashboard-card(href='/users')
+              .dashboard-icon
+                i.fas.fa-user-cog
+              h3 Пользователи
+              p Управление пользователями
+
+  else
+
+    // Первое навигационное поле
+    header.header
+      .container
+        .header-content
+          a.logo(href='/')
+            i.fas.fa-spray-can
+            span Клининговая компания
+          if user && user.login
+            .user-info
+              span.user-name= user.login
+              a.btn.btn-secondary(href='', id='Logout') Выйти
+          else
+            nav.main-nav
+              a(href='/services') Услуги
+              a(href='/about') О компании
+            a.btn.btn-secondary(href='', id='Login') Войти
+
+    // Для неавторизованных - обычная главная страница
+    section.hero
+      .container
+        .hero-content
+          .hero-text
+            h1 Клининговая компания
+            p Профессиональная уборка помещений любого типа с гарантией качества
+            .hero-buttons
+              a.btn(href='/services') Наши услуги
+              a.btn.btn-secondary(href='', id='Login') Оставить заявку
+
+    section.services
+      .container
+        h2 Услуги клининга
+        p.subtitle Широкий спектр профессиональных клининговых услуг
+        
+        .services-grid
+          .service-card
+            h3 10K+
+            p Клиентов
+          .service-card
+            h3 4M
+            p кв.м. убрано
+          .service-card
+            h3 99.99%
+            p Довольных клиентов
+
+    section.advantages
+      .container
+        h2 Наши преимущества
+        
+        .advantages-grid
+          .advantage-card
+            .advantage-number 01
+            h3 Профессионализм
+            p Опытные бригады с многолетним стажем работы в клининговой сфере
+          .advantage-card
+            .advantage-number 02
+            h3 Качество
+            p Используем только сертифицированные безопасные моющие средства
+          .advantage-card
+            .advantage-number 03
+            h3 Надежность
+            p Гарантия на все виды работ и страхование ответственности
+
+    section.newsletter
+      .container
+        .newsletter-content
+          .newsletter-text
+            h2 Получите скидку 50% на первый заказ
+            p Подпишитесь на нашу рассылку и будьте в курсе всех акций и новостей
+          .newsletter-form
+            input(type="email" placeholder="Ваш email")
+            button.btn Подписаться
+
+    style.
+      .hero {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+        color: white;
+        padding: 100px 0;
+      }
+      
+      .hero-content {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 60px;
+        align-items: center;
+      }
+      
+      .hero-text h1 {
+        color: white;
+        font-size: 56px;
+        margin-bottom: 20px;
+      }
+      
+      .hero-text p {
+        color: rgba(255,255,255,0.9);
+        font-size: 18px;
+        margin-bottom: 30px;
+      }
+      
+      .hero-buttons {
+        display: flex;
+        gap: 15px;
+      }
+      
+      .hero-buttons .btn {
+        background: white;
+        color: var(--primary-color);
+      }
+      
+      .hero-buttons .btn-secondary {
+        background: transparent;
+        color: white;
+        border-color: white;
+      }
+      
+      .hero-stats {
+        background: rgba(255,255,255,0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        padding: 30px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 30px;
+        border: 1px solid rgba(255,255,255,0.2);
+      }
+      
+      .stat-item {
+        text-align: center;
+      }
+      
+      .stat-number {
+        font-size: 32px;
+        font-weight: 700;
+        color: white;
+        margin-bottom: 5px;
+      }
+      
+      .stat-label {
+        font-size: 14px;
+        color: rgba(255,255,255,0.8);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+      
+      .services {
+        padding: 80px 0;
+        background: white;
+      }
+      
+      .subtitle {
+        text-align: center;
+        max-width: 600px;
+        margin: 0 auto 50px;
+        font-size: 18px;
+      }
+      
+      .services-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 30px;
+      }
+      
+      .service-card {
+        background: white;
+        border-radius: 15px;
+        padding: 30px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+        text-align: center;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+      }
+      
+      .service-card:hover {
+        transform: translateY(-10px);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.12);
+      }
+      
+      .service-icon {
+        font-size: 48px;
+        color: var(--primary-color);
+        margin-bottom: 20px;
+      }
+      
+      .service-card h3 {
+        margin-bottom: 15px;
+        color: var(--dark-color);
+      }
+      
+      .service-card p {
+        color: var(--text-light);
+        margin-bottom: 20px;
+        line-height: 1.6;
+      }
+      
+      .service-link {
+        color: var(--primary-color);
+        font-weight: 600;
+        position: relative;
+      }
+      
+      .service-link:after {
+        content: '→';
+        margin-left: 8px;
+        transition: transform 0.3s ease;
+      }
+      
+      .service-link:hover:after {
+        transform: translateX(5px);
+      }
+      
+      .advantages {
+        padding: 80px 0;
+        background: var(--gray-color);
+      }
+      
+      .advantages-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 40px;
+      }
+      
+      .advantage-card {
+        background: white;
+        border-radius: 15px;
+        padding: 40px 30px;
+        text-align: center;
+        position: relative;
+      }
+      
+      .advantage-number {
+        position: absolute;
+        top: -20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--primary-color);
+        color: white;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+      }
+      
+      .advantage-card h3 {
+        margin: 20px 0 15px;
+        color: var(--dark-color);
+      }
+      
+      .advantage-card p {
+        color: var(--text-light);
+        line-height: 1.6;
+      }
+      
+      .newsletter {
+        padding: 80px 0;
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+        color: white;
+      }
+      
+      .newsletter-content {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 60px;
+        align-items: center;
+      }
+      
+      .newsletter-text h2 {
+        color: white;
+        margin-bottom: 15px;
+      }
+      
+      .newsletter-text p {
+        color: rgba(255,255,255,0.9);
+      }
+      
+      .newsletter-form {
+        display: flex;
+        gap: 10px;
+      }
+      
+      .newsletter-form input {
+        flex: 1;
+        padding: 15px 20px;
+        border: none;
+        border-radius: 30px;
+        font-size: 16px;
+      }
+      
+      .newsletter-form .btn {
+        white-space: nowrap;
+      }
+      
+      @media (max-width: 768px) {
+        .hero-content,
+        .newsletter-content {
+          grid-template-columns: 1fr;
+          text-align: center;
+        }
+        
+        .hero-buttons {
+          justify-content: center;
+          flex-wrap: wrap;
+        }
+        
+        .hero-stats {
+          grid-template-columns: 1fr;
+          gap: 20px;
+        }
+        
+        .newsletter-form {
+          flex-direction: column;
+        }
+        
+        h1 {
+          font-size: 36px;
+        }
+        
+        h2 {
+          font-size: 28px;
+        }
+      }

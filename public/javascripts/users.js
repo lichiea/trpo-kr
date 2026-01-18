@@ -11,7 +11,7 @@ $(document).ready(function(){
                 `<tr>
                     <td>${user.id}
                     <td>${user.login}
-                    <td>${user.fio}
+                    <td>${user.pass}
                     <td>${user.role_label}
                 </tr>`
             )

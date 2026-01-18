@@ -1,16 +1,366 @@
 extends ../layout
 
 block content
-    div
-        ul
-          li
-            a(href='/') Главная страница
-    script(src='/javascripts/users.js')
 
-    h1= title
-    table#tbl_users
-        tr 
-            th id
-            th Имя
-            th Логин
-            th Роль
+  // Первое навигационное поле
+  header.header
+    .container
+      .header-content
+        a.logo(href='/')
+          i.fas.fa-spray-can
+          span Клининговая компания
+
+  .page-container
+    h1.page-title= title
+    
+    if can_view_employees
+      .actions-panel
+        button.primary-button(id='create_employee') Создать сотрудника
+    
+    .content-card
+      if employees && employees.length > 0
+        .table-container
+          table.data-table
+            thead
+              tr 
+                th ID
+                th ФИО
+                th Телефон
+                th Email
+                th Должность
+                th Специализация
+                th ID пользователя
+            tbody
+              each employee in employees
+                tr
+                  td
+                    a(href='/employees/' + employee.id)= employee.id
+                  td
+                    a(href='/employees/' + employee.id)= employee.fio
+                  td= employee.phone
+                  td= employee.email
+                  td= employee.position_d
+                  td= employee.specialization
+                  td= employee.id_pol
+      else
+        .empty-state
+          p Нет сотрудников в базе данных
+
+    // Модальное окно для создания сотрудника
+    div#create_employee_popup.modal-window(style="display:none")
+      .modal-content
+        .modal-header
+          h3 Создать сотрудника
+          button.modal-close#create_employee_popup_close ×
+        .modal-body
+          form.modal-form
+            .form-group
+              label(for="inpfio") ФИО
+              input#inpfio(type="text" placeholder="Иванов И. И.")
+            .form-group
+              label(for="inpphone") Телефон
+              input#inpphone(type="text" placeholder="89371234567")
+            .form-group
+              label(for="inpemail") Email
+              input#inpemail(type="email" placeholder="employee@example.com")
+            .form-group
+              label(for="inpposition_d") Должность
+              input#inpposition_d(type="text" placeholder="Старший клинер")
+            .form-group
+              label(for="inpspecialization") Специализация
+              input#inpspecialization(type="text" placeholder="Клинер офисных помещений")
+        .modal-footer
+          button.secondary-button#cancel_create_employee Отменить
+          button.primary-button#submit_create_employee Создать
+
+  script.
+    // JavaScript код остаётся без изменений
+    document.addEventListener('DOMContentLoaded', function() {
+      const createBtn = document.getElementById('create_employee');
+      const popup = document.getElementById('create_employee_popup');
+      const closeBtn = document.getElementById('create_employee_popup_close');
+      const cancelBtn = document.getElementById('cancel_create_employee');
+      const submitBtn = document.getElementById('submit_create_employee');
+      
+      if (createBtn) {
+        createBtn.addEventListener('click', function() {
+          popup.style.display = 'block';
+        });
+      }
+      
+      if (closeBtn) {
+        closeBtn.addEventListener('click', function() {
+          popup.style.display = 'none';
+          clearForm();
+        });
+      }
+      
+      if (cancelBtn) {
+        cancelBtn.addEventListener('click', function() {
+          popup.style.display = 'none';
+          clearForm();
+        });
+      }
+      
+      function clearForm() {
+        document.getElementById('inpfio').value = '';
+        document.getElementById('inpphone').value = '';
+        document.getElementById('inpemail').value = '';
+        document.getElementById('inpposition_d').value = '';
+        document.getElementById('inpspecialization').value = '';
+      }
+      
+      window.addEventListener('click', function(event) {
+        if (event.target === popup) {
+          popup.style.display = 'none';
+          clearForm();
+        }
+      });
+    });
+
+  style.
+    /* Общие стили */
+    .page-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 30px 20px;
+    }
+    
+    .page-title {
+      font-size: 32px;
+      color: #5C4EAE;
+      margin-bottom: 30px;
+      font-weight: 600;
+    }
+    
+    .content-card {
+      background: #FFFFFF;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 4px 20px rgba(92, 78, 174, 0.1);
+    }
+    
+    /* Панель действий */
+    .actions-panel {
+      margin-bottom: 25px;
+    }
+    
+    /* Кнопки */
+    .primary-button {
+      background-color: #6C5FBC;
+      color: white;
+      padding: 12px 28px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+    }
+    
+    .primary-button:hover {
+      background-color: #5C4EAE;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 15px rgba(108, 95, 188, 0.3);
+    }
+    
+    .secondary-button {
+      background-color: #6C5FBC;
+      color: #333;
+      padding: 12px 28px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+    }
+    
+    .secondary-button:hover {
+      background-color: #DDD;
+      transform: translateY(-2px);
+    }
+    
+    /* Таблица */
+    .table-container {
+      overflow-x: auto;
+      border-radius: 8px;
+      border: 1px solid #5C4EAE;
+      color: #6C5FBC;
+    }
+    
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    
+    .data-table thead {
+      background-color: #5C4EAE; /* Тёмный фиолетовый */
+    }
+    
+    .data-table th {
+      padding: 18px 20px;
+      text-align: left;
+      font-weight: 600;
+      color: #FFFFFF; /* Белый */
+      font-size: 16px;
+      border-bottom: 2px solid #4A3E9C; /* Ещё темнее для контраста */
+      background-color: #5C4EAE;
+    }
+    
+    /* Чётные строки - светло-серые, нечётные - белые */
+    .data-table tbody tr:nth-child(odd) td {
+      background-color: #FFFFFF;
+    }
+    
+    .data-table tbody tr:nth-child(even) td {
+      background-color: #F8F8F8;
+    }
+    
+    .data-table td {
+      padding: 16px 20px;
+      border-bottom: 1px solid #DDD;
+      color: #000000; /* Чёрный текст для максимального контраста */
+      font-size: 15px;
+    }
+        
+    .data-table tbody tr:hover {
+      background-color: rgba(108, 95, 188, 0.05);
+    }
+    
+    .data-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+    
+    .data-table a {
+      color: #6C5FBC;
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.3s ease;
+    }
+    
+    .data-table a:hover {
+      color: #5C4EAE;
+      text-decoration: underline;
+    }
+    
+    /* Состояние пустого списка */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #666;
+      font-size: 18px;
+    }
+    
+    /* Модальное окно */
+    .modal-window {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal-content {
+      width: 800px !important; /* Широкая ширина с !important */
+      max-width: 95vw !important;
+      background: #FFFFFF !important;
+      border-radius: 12px !important;
+      max-height: 90vh !important;
+      overflow-y: auto !important;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2) !important;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 25px 30px;
+      border-bottom: 1px solid #6C5FBC;
+      background-color: #5C4EAE;
+      border-radius: 12px 12px 0 0;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .modal-header h3 {
+      color: white;
+      margin: 0;
+      font-size: 22px;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 28px;
+      cursor: pointer;
+      padding: 0;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      transition: background-color 0.3s ease;
+    }
+
+    .modal-close:hover {
+      background-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .modal-body {
+      padding: 30px !important;
+    }
+
+    .modal-footer {
+      padding: 20px 30px;
+      border-top: 1px solid #6C5FBC;
+      display: flex;
+      justify-content: flex-end;
+      gap: 15px;
+    }
+
+    /* Форма */
+    .modal-form {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .form-group label {
+      font-weight: 600;
+      color: #333;
+      font-size: 15px;
+    }
+
+    .form-group input {
+      padding: 12px 16px;
+      border: 1px solid #DDD;
+      border-radius: 6px;
+      font-size: 15px;
+      transition: border-color 0.3s ease;
+      width: 100%; /* Чтобы поля ввода занимали всю доступную ширину */
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #6C5FBC;
+      box-shadow: 0 0 0 3px rgba(108, 95, 188, 0.1);
+    }
+
+    .form-group input::placeholder {
+      color: #999;
+    }

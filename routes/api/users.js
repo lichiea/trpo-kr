@@ -7,11 +7,9 @@ router.get('/', async function(req, res, next) {
         SELECT
             users.id AS id,
             users.login AS login,
-            users.fio AS fio,
-            roles.label AS role_label
+            users.id_role AS id_role
         FROM
             users
-        INNER JOIN roles ON roles.id = users.id_role
     `)
     console.log(users)
     res.json({users: users })

@@ -11,7 +11,13 @@ var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
 var clientsRouter = require('./routes/clients');
 var ordersRouter = require('./routes/orders');
-var paymentsRouter = require('./routes/payments');
+var servicesRouter = require('./routes/services');
+var employeesRouter = require('./routes/employees');
+var docsRouter = require('./routes/docs');
+var pricelistsRouter = require('./routes/pricelists');
+var transportsRouter = require('./routes/transports');
+var teamsRouter = require('./routes/teams');
+var equipmentsRouter = require('./routes/equipments');
 
 var app = express();
 
@@ -36,7 +42,13 @@ app.use('/', indexRouter);
 app.use('/users', usersRouter);
 app.use('/clients', clientsRouter);
 app.use('/orders', ordersRouter);
-app.use('/payments', paymentsRouter);
+app.use('/services', servicesRouter);
+app.use('/employees', employeesRouter);
+app.use('/docs', docsRouter);
+app.use('/pricelists', pricelistsRouter);
+app.use('/transports', transportsRouter);
+app.use('/teams', teamsRouter);
+app.use('/equipments', equipmentsRouter);
 
 var api      = require('./routes/api');
 app.use('/api', api);

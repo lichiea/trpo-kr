@@ -1,24 +1,24 @@
 $(document).ready(function(){
 
-    $('#create_order').click(function(e){
+    $('#create_doc').click(function(e){
 
-        $('#create_order_popup').show()
-
-    })
-
-    $('#create_order_popup_close').click(function(e){
-
-        $('#create_order_popup').hide()
+        $('#create_doc_popup').show()
 
     })
 
-    $('#cancel_create_order').click(function(e){
+    $('#create_doc_popup_close').click(function(e){
 
-        $('#create_order_popup').hide()
+        $('#create_doc_popup').hide()
 
     })
 
-    $('#submit_create_order').click(function(e){
+    $('#cancel_create_doc').click(function(e){
+
+        $('#create_doc_popup').hide()
+
+    })
+
+    $('#submit_create_doc').click(function(e){
 
         e.preventDefault()
         let data = {
@@ -31,12 +31,12 @@ $(document).ready(function(){
         $.ajax({
             type: 'POST',
             data: data,
-            url: '/orders/create',
+            url: '/docs/create',
             dataType: 'JSON'
         }).done(function( response ) {
 
             if (response.msg === '') {
-                alert('Заказ создан')
+                alert('Документ создан')
                 window.location.reload()
             }
             else {
@@ -47,11 +47,11 @@ $(document).ready(function(){
     })
 
 
-    $('#update_order').click(function(e){
+    $('#update_doc').click(function(e){
         e.preventDefault();
    
         const pathSegments = window.location.pathname.split('/');
-        const orderId = pathSegments[pathSegments.length - 1];   
+        const docId = pathSegments[pathSegments.length - 1];   
 
         let data = {
             label: $('#editLabel').val(),
@@ -63,12 +63,12 @@ $(document).ready(function(){
         $.ajax({
             type: 'POST',
             data: data,
-            url: `/orders/update/${orderId}`,
+            url: `/docs/update/${docId}`,
             dataType: 'JSON'
         }).done(function(response) {
             if (response.msg === '') {
-                alert('Заказ обновлен');
-                window.location.href = '/orders';
+                alert('Документ обновлен');
+                window.location.href = '/docs';
             } else {
                 alert(response.msg);
             }
