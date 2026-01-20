@@ -12,126 +12,94 @@ block content
 
   .page-container
     .navigation-links
-      a.back-link(href='/employees') ← Назад к списку сотрудников
+      a.back-link(href='/teams') ← Назад к списку бригад
     
     .content-card
       .profile-header
         h1.page-title= title
   
       .profile-content
-        form#employeeForm.profile-form
+        form#teamForm.profile-form
           .form-section
             h2.section-title Основная информация
             
             .form-grid
               .form-group
-                label(for="editfio") ФИО:
-                if can_view_employees
-                  input#editfio(type='text', value=employee.fio, name="fio")
-                else
-                  .form-value= employee.fio
+                label(for="editId") ID бригады:
+                .form-value= team.id
               
               .form-group
-                label(for="editphone") Телефон:
-                if can_view_employees
-                  input#editphone(type='text', value=employee.phone, name="phone")
+                label(for="editTaskmaster") Бригадир:
+                if can_view_teams
+                  select#editTaskmaster(name="id_taskmaster")
+                    option(value="") Не назначен
+                    each employee in all_employees
+                      option(value=employee.id, selected=(employee.id == team.id_taskmaster))
+                        | #{employee.fio} (#{employee.position_d || 'без должности'})
                 else
-                  .form-value= employee.phone
-              
-              .form-group
-                label(for="editemail") Email:
-                if can_view_employees
-                  input#editemail(type='email', value=employee.email, name="email")
-                else
-                  .form-value= employee.email
-              
-              .form-group
-                label(for="editposition_d") Должность:
-                if can_view_employees
-                  input#editposition_d(type='text', value=employee.position_d, name="position_d")
-                else
-                  .form-value= employee.position_d
-              
-              .form-group
-                label(for="editspecialization") Специализация:
-                if can_view_employees
-                  input#editspecialization(type='text', value=employee.specialization, name="specialization")
-                else
-                  .form-value= employee.specialization
-              
-              .form-group
-                label(for="editid_pol") ID пользователя:
-                if can_view_employees
-                  input#editid_pol(type='number', value=employee.id_pol, name="id_pol")
-                else
-                  .form-value= employee.id_pol
+                  .form-value
+                    if team.taskmaster_fio
+                      a(href='/employees/' + team.id_taskmaster)= team.taskmaster_fio
+                    else
+                      | Не назначен
 
               .form-actions
                 .buttons-row
-                  if can_view_employees
+                  if can_view_teams
                     button.primary-button#editSaveButton(type="button") Сохранить изменения
-                    button.danger-button#deleteButton(type="button") Удалить сотрудника
+                    button.secondary-button#addMemberButton(type="button") Добавить сотрудника
+                    button.danger-button#deleteButton(type="button") Удалить бригаду
                   else
-                    .no-permission-message У вас нет прав для редактирования профиля        
+                    .no-permission-message У вас нет прав для редактирования бригады
 
-        if userData
-          .info-section
-            h2.section-title Данные пользователя в системе
-            
-            .info-grid
-              .info-item
-                .info-label ID пользователя:
-                .info-value= userData.user_id
-              .info-item
-                .info-label Логин:
-                .info-value= userData.login || 'Не указан'
-              .info-item
-                .info-label Роль:
-                .info-value= userData.role || 'Не указана'
-        else
-          .info-section
-            .empty-message Данные пользователя не найдены в системе
-        
-        if isTeamLeader || teamInfo
-          .info-section
-            h2.section-title Информация о бригаде
-            
-            if isTeamLeader
-              .info-card.team-leader-card
-                .info-icon 🏆
-                .info-content
-                  h3 Сотрудник является бригадиром
-                  .info-details
-                    .detail
-                      .detail-label Бригада №:
-                      .detail-value= isTeamLeader.team_id
-                    .detail
-                      .detail-label Статус:
-                      .detail-value Руководитель бригады
-            
-            else if teamInfo
-              .info-card.team-member-card
-                .info-icon 👥
-                .info-content
-                  h3 Сотрудник входит в бригаду
-                  .info-details
-                    .detail
-                      .detail-label Номер бригады:
-                      .detail-value= teamInfo.team_id
-                    
-                    if teamLeaderInfo
-                      .detail
-                        .detail-label Бригадир:
-                        .detail-value= teamLeaderInfo.team_leader_fio
-                      .detail
-                        .detail-label Должность бригадира:
-                        .detail-value= teamLeaderInfo.team_leader_position
-        else
-          .info-section
-            .info-card
-              .empty-message Сотрудник не входит ни в одну бригаду
+        .info-section
+          h2.section-title Состав бригады
+          
+          if team_members && team_members.length > 0
+            .table-container
+              table.data-table
+                thead
+                  tr
+                    th ID
+                    th ФИО
+                    th Должность
+                    if can_view_teams
+                      th Действия
+                tbody
+                  each member in team_members
+                    tr
+                      td= member.employee_id
+                      td
+                        a(href='/employees/' + member.employee_id)= member.employee_fio
+                      td= member.employee_position
+                      if can_view_teams
+                        td
+                          button.danger-button.remove-member-btn(
+                            data-item-id=member.item_id,
+                            data-employee-name=member.employee_fio
+                          ) Удалить
+          else
+            .empty-message В бригаде нет сотрудников
 
-    #deleteConfirmModal.modal-window(style="display: none;")
+    // Модальное окно для добавления сотрудника
+    div#addMemberModal.modal-window(style="display: none;")
+      .modal-content
+        .modal-header
+          h3 Добавить сотрудника в бригаду
+          button.modal-close#addMemberModalClose ×
+        .modal-body
+          .form-group
+            label(for="selectEmployee") Выберите сотрудника:
+            select#selectEmployee
+              option(value="") Выберите сотрудника
+              each employee in all_employees
+                option(value=employee.id)= `${employee.fio} (${employee.position_d || 'без должности'})`
+        .modal-footer
+          button.secondary-button#cancelAddMember Отмена
+          button.primary-button#confirmAddMember Добавить
+
+    // Модальное окно для подтверждения удаления
+    div#deleteConfirmModal.modal-window(style="display: none;")
       .modal-content
         .modal-header
           h3 Подтверждение удаления
@@ -140,114 +108,53 @@ block content
           .warning-message
             .warning-icon ⚠️
             .warning-text
-              h4 Вы уверены, что хотите удалить сотрудника?
+              h4 Вы уверены, что хотите удалить бригаду?
               p
-                strong= employee.fio
-              p Это действие нельзя отменить. Все данные сотрудника будут удалены безвозвратно.
+                strong Бригада №#{team.id}
+              p Это действие нельзя отменить. Все данные бригады будут удалены безвозвратно.
         .modal-footer
           button.secondary-button#cancelDelete Отмена
           button.danger-button#confirmDelete Удалить
 
   script.
     document.addEventListener('DOMContentLoaded', function() {
-      // ============ ПЕРЕМЕННЫЕ ============
-      let isEditing = false;
-      const saveButton = document.getElementById('editSaveButton'); 
-      const formInputs = document.querySelectorAll('#employeeForm input');
-      const formValues = document.querySelectorAll('#employeeForm .form-value');
-      
-      // Элементы для удаления
+      const saveButton = document.getElementById('editSaveButton');
+      const addMemberButton = document.getElementById('addMemberButton');
       const deleteButton = document.getElementById('deleteButton');
+      
+      const addMemberModal = document.getElementById('addMemberModal');
+      const addMemberModalClose = document.getElementById('addMemberModalClose');
+      const cancelAddMemberButton = document.getElementById('cancelAddMember');
+      const confirmAddMemberButton = document.getElementById('confirmAddMember');
+      const selectEmployee = document.getElementById('selectEmployee');
+      
       const deleteModal = document.getElementById('deleteConfirmModal');
       const deleteModalClose = document.getElementById('deleteModalClose');
       const cancelDeleteButton = document.getElementById('cancelDelete');
       const confirmDeleteButton = document.getElementById('confirmDelete');
       
-      // Получаем ID сотрудника из URL
+      // Получаем ID бригады из URL
       const pathSegments = window.location.pathname.split('/');
-      const employeeId = pathSegments[pathSegments.length - 1];
+      const teamId = pathSegments[pathSegments.length - 1];
       
-      // ============ ФУНКЦИИ ============
-      // Закрытие модального окна удаления
-      function closeDeleteModal() {
-        if (deleteModal) {
-          deleteModal.style.display = 'none';
-          document.body.style.overflow = 'auto';
-        }
-      }
-      
-      // Показать/скрыть индикатор загрузки на кнопке
-      function toggleButtonLoading(button, isLoading, loadingText = 'Загрузка...') {
-        if (isLoading) {
-          button.disabled = true;
-          const spinner = '<span class="loading-spinner"></span>';
-          button.innerHTML = spinner + loadingText;
-        } else {
-          button.disabled = false;
-          // Восстанавливаем текст в зависимости от состояния
-          if (button === editSaveButton) {
-            button.innerHTML = isEditing ? 'Сохранить изменения' : 'Редактировать профиль';
-          } else {
-            button.innerHTML = button.dataset.originalText || button.textContent;
-          }
-        }
-      }
-      
-      // Валидация формы
-      function validateFormData(formData) {
-        if (!formData.fio || !formData.phone || !formData.position_d) {
-          alert('Пожалуйста, заполните обязательные поля (ФИО, телефон и должность)');
-          return false;
-        }
-        
-        if (formData.id_pol) {
-          formData.id_pol = parseInt(formData.id_pol);
-          if (isNaN(formData.id_pol)) {
-            alert('ID пользователя должно быть числом');
-            return false;
-          }
-        }
-        
-        return true;
-      }
-      
-      // ============ ОБРАБОТКА РЕДАКТИРОВАНИЯ ============
+      // Обновление данных бригады
       if (saveButton) {
         saveButton.addEventListener('click', async function() {
-          // Собираем данные из полей ввода (они всегда видны)
           const formData = {
-            fio: document.getElementById('editfio').value.trim(),
-            phone: document.getElementById('editphone').value.trim(),
-            email: document.getElementById('editemail').value.trim(),
-            position_d: document.getElementById('editposition_d').value.trim(),
-            specialization: document.getElementById('editspecialization').value.trim(),
-            id_pol: document.getElementById('editid_pol').value.trim()
+            id_taskmaster: document.getElementById('editTaskmaster').value
           };
           
-          // Простая валидация
-          if (!formData.fio || !formData.phone || !formData.position_d) {
-            alert('Заполните ФИО, телефон и должность');
+          // Валидация
+          if (!formData.id_taskmaster && formData.id_taskmaster !== '') {
+            alert('Пожалуйста, выберите бригадира или оставьте поле пустым');
             return;
           }
           
-          // Преобразуем id_pol в число если есть
-          if (formData.id_pol && formData.id_pol !== '') {
-            formData.id_pol = parseInt(formData.id_pol);
-            if (isNaN(formData.id_pol)) {
-              alert('ID пользователя должно быть числом');
-              return;
-            }
-          } else {
-            formData.id_pol = null;
-          }
-          
-          // Показываем загрузку
           saveButton.disabled = true;
           saveButton.textContent = 'Сохранение...';
           
           try {
-            // Отправляем запрос
-            const response = await fetch(`/employees/update/${employeeId}`, {
+            const response = await fetch(`/teams/update/${teamId}`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -258,14 +165,8 @@ block content
             const data = await response.json();
             
             if (data.msg === '') {
-              alert('Данные сотрудника успешно обновлены');
-              // Обновляем текст на странице (если есть)
-              if (document.getElementById('viewFio')) {
-                document.getElementById('viewFio').textContent = formData.fio;
-              }
-              if (document.getElementById('viewPhone')) {
-                document.getElementById('viewPhone').textContent = formData.phone;
-              }
+              alert('Данные бригады успешно обновлены');
+              window.location.reload();
             } else {
               alert('Ошибка: ' + data.msg);
             }
@@ -274,30 +175,122 @@ block content
             console.error('Error:', error);
             alert('Ошибка при обновлении данных');
           } finally {
-            // Восстанавливаем кнопку
             saveButton.disabled = false;
             saveButton.textContent = 'Сохранить изменения';
           }
         });
       }
       
-      // ============ ОБРАБОТКА УДАЛЕНИЯ ============
-      // Открытие модального окна удаления
-      if (deleteButton) {
-        deleteButton.addEventListener('click', function() {
-          if (isEditing) {
-            alert('Завершите редактирование перед удалением сотрудника');
+      // Добавление сотрудника в бригаду
+      if (addMemberButton) {
+        addMemberButton.addEventListener('click', function() {
+          addMemberModal.style.display = 'flex';
+          document.body.style.overflow = 'hidden';
+        });
+      }
+      
+      // Закрытие модального окна добавления
+      function closeAddMemberModal() {
+        addMemberModal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+        selectEmployee.value = '';
+      }
+      
+      if (addMemberModalClose) {
+        addMemberModalClose.addEventListener('click', closeAddMemberModal);
+      }
+      
+      if (cancelAddMemberButton) {
+        cancelAddMemberButton.addEventListener('click', closeAddMemberModal);
+      }
+      
+      // Подтверждение добавления сотрудника
+      if (confirmAddMemberButton) {
+        confirmAddMemberButton.addEventListener('click', async function() {
+          const employeeId = selectEmployee.value;
+          
+          if (!employeeId) {
+            alert('Пожалуйста, выберите сотрудника');
             return;
           }
           
-          if (deleteModal) {
-            deleteModal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
+          confirmAddMemberButton.disabled = true;
+          confirmAddMemberButton.textContent = 'Добавление...';
+          
+          try {
+            const response = await fetch(`/teams/${teamId}/add-member`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ id_employee: employeeId })
+            });
+            
+            const data = await response.json();
+            
+            if (data.msg === '') {
+              alert('Сотрудник добавлен в бригаду');
+              window.location.reload();
+            } else {
+              alert('Ошибка: ' + data.msg);
+            }
+            
+          } catch (error) {
+            console.error('Error:', error);
+            alert('Ошибка при добавлении сотрудника');
+          } finally {
+            confirmAddMemberButton.disabled = false;
+            confirmAddMemberButton.textContent = 'Добавить';
           }
         });
       }
       
-      // Закрытие модального окна
+      // Удаление сотрудника из бригады
+      document.querySelectorAll('.remove-member-btn').forEach(button => {
+        button.addEventListener('click', async function() {
+          const itemId = this.dataset.itemId;
+          const employeeName = this.dataset.employeeName;
+          
+          if (confirm(`Удалить ${employeeName} из бригады?`)) {
+            try {
+              const response = await fetch(`/teams/${teamId}/remove-member/${itemId}`, {
+                method: 'DELETE',
+                headers: {
+                  'Content-Type': 'application/json',
+                }
+              });
+              
+              const data = await response.json();
+              
+              if (data.msg === '') {
+                alert('Сотрудник удален из бригады');
+                window.location.reload();
+              } else {
+                alert('Ошибка: ' + data.msg);
+              }
+              
+            } catch (error) {
+              console.error('Error:', error);
+              alert('Ошибка при удалении сотрудника');
+            }
+          }
+        });
+      });
+      
+      // Удаление бригады
+      if (deleteButton) {
+        deleteButton.addEventListener('click', function() {
+          deleteModal.style.display = 'flex';
+          document.body.style.overflow = 'hidden';
+        });
+      }
+      
+      // Закрытие модального окна удаления
+      function closeDeleteModal() {
+        deleteModal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+      }
+      
       if (deleteModalClose) {
         deleteModalClose.addEventListener('click', closeDeleteModal);
       }
@@ -306,31 +299,14 @@ block content
         cancelDeleteButton.addEventListener('click', closeDeleteModal);
       }
       
-      // Закрытие модального окна при клике вне его
-      if (deleteModal) {
-        deleteModal.addEventListener('click', function(event) {
-          if (event.target === deleteModal) {
-            closeDeleteModal();
-          }
-        });
-      }
-      
-      // Закрытие по ESC
-      document.addEventListener('keydown', function(event) {
-        if (event.key === 'Escape' && deleteModal && deleteModal.style.display === 'flex') {
-          closeDeleteModal();
-        }
-      });
-      
-      // Подтверждение удаления
+      // Подтверждение удаления бригады
       if (confirmDeleteButton) {
         confirmDeleteButton.addEventListener('click', async function() {
-          // Показываем индикатор загрузки
-          toggleButtonLoading(confirmDeleteButton, true, 'Удаление...');
+          confirmDeleteButton.disabled = true;
+          confirmDeleteButton.textContent = 'Удаление...';
           
           try {
-            // ВАЖНО: используем правильный URL
-            const response = await fetch(`/employees/delete/${employeeId}`, {
+            const response = await fetch(`/teams/delete/${teamId}`, {
               method: 'DELETE',
               headers: {
                 'Content-Type': 'application/json',
@@ -340,9 +316,8 @@ block content
             const data = await response.json();
             
             if (data.msg === '') {
-              alert('Сотрудник успешно удалён');
-              // Перенаправляем на список сотрудников
-              window.location.href = '/employees';
+              alert('Бригада успешно удалена');
+              window.location.href = '/teams';
             } else {
               alert('Ошибка: ' + data.msg);
               closeDeleteModal();
@@ -350,33 +325,35 @@ block content
             
           } catch (error) {
             console.error('Error:', error);
-            alert('Ошибка при удалении сотрудника');
+            alert('Ошибка при удалении бригады');
           } finally {
-            toggleButtonLoading(confirmDeleteButton, false);
+            confirmDeleteButton.disabled = false;
+            confirmDeleteButton.textContent = 'Удалить';
           }
         });
       }
       
-      // Стиль для индикатора загрузки
-      const style = document.createElement('style');
-      style.textContent = `
-        .loading-spinner {
-          display: inline-block;
-          width: 16px;
-          height: 16px;
-          border: 2px solid rgba(255,255,255,.3);
-          border-radius: 50%;
-          border-top-color: #fff;
-          animation: spin 1s ease-in-out infinite;
-          margin-right: 8px;
-          vertical-align: middle;
+      // Закрытие модальных окон при клике вне их
+      window.addEventListener('click', function(event) {
+        if (event.target === addMemberModal) {
+          closeAddMemberModal();
         }
-        
-        @keyframes spin {
-          to { transform: rotate(360deg); }
+        if (event.target === deleteModal) {
+          closeDeleteModal();
         }
-      `;
-      document.head.appendChild(style);
+      });
+      
+      // Закрытие по ESC
+      document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+          if (addMemberModal.style.display === 'flex') {
+            closeAddMemberModal();
+          }
+          if (deleteModal.style.display === 'flex') {
+            closeDeleteModal();
+          }
+        }
+      });
     });
 
   style.

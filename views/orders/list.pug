@@ -13,78 +13,120 @@ block content
   .page-container
     h1.page-title= title
     
-    if can_view_employees
+    if can_view_orders
       .actions-panel
-        button.primary-button(id='create_employee') Создать сотрудника
+        button.primary-button(id='create_order') Создать заказ
     
     .content-card
-      if employees && employees.length > 0
+      if orders && orders.length > 0
         .table-container
           table.data-table
             thead
               tr 
                 th ID
-                th ФИО
-                th Телефон
-                th Email
-                th Должность
-                th Специализация
-                th ID пользователя
+                th Статус
+                th Дата создания
+                th Клиент
+                th Общая стоимость
+                th Плановая дата
+                th Описание
             tbody
-              each employee in employees
+              each order in orders
                 tr
                   td
-                    a(href='/employees/' + employee.id)= employee.id
+                    a(href='/orders/' + order.id)= order.id
                   td
-                    a(href='/employees/' + employee.id)= employee.fio
-                  td= employee.phone
-                  td= employee.email
-                  td= employee.position_d
-                  td= employee.specialization
-                  td= employee.id_pol
+                    span.status-badge(class=order.status.replace(/\s+/g, '-').toLowerCase())= order.status
+                  td= order.creationDate ? new Date(order.creationDate).toLocaleDateString('ru-RU') : '-'
+                  td
+                    a(href='/orders/' + order.id)= order.client_fio || 'Клиент #' + order.id_client
+                  td= order.totalCost ? order.totalCost.toLocaleString('ru-RU') + ' ₽' : '-'
+                  td= order.plannedDate ? new Date(order.plannedDate).toLocaleDateString('ru-RU') : '-'
+                  td.description-cell= order.description || '-'
       else
         .empty-state
-          p Нет сотрудников в базе данных
+          p Нет заказов в базе данных
 
-    // Модальное окно для создания сотрудника
-    div#create_employee_popup.modal-window(style="display:none")
+    // Модальное окно для создания заказа
+    div#create_order_popup.modal-window(style="display:none")
       .modal-content
         .modal-header
-          h3 Создать сотрудника
-          button.modal-close#create_employee_popup_close ×
+          h3 Создать заказ
+          button.modal-close#create_order_popup_close ×
         .modal-body
-          form.modal-form
+          form.modal-form#orderForm
             .form-group
-              label(for="inpfio") ФИО
-              input#inpfio(type="text" placeholder="Иванов И. И.")
+              label(for="inpstatus") Статус
+              select#inpstatus(name="status")
+                option(value="Новый") Новый
+                option(value="Обработка заказа менеджером") Обработка заказа менеджером
+                option(value="На согласовании ЗН") На согласовании ЗН
+                option(value="В ожидании") В ожидании
+                option(value="Заказ в работе") Заказ в работе
+                option(value="Заказ выполнен") Заказ выполнен
+                option(value="На согласовании акта") На согласовании акта
+                option(value="Акт согласован") Акт согласован
+                option(value="Акт не согласован") Акт не согласован
+                option(value="Выставлен счет на оплату") Выставлен счет на оплату
+                option(value="Заказ оплачен") Заказ оплачен
+                option(value="Завершён") Завершён
             .form-group
-              label(for="inpphone") Телефон
-              input#inpphone(type="text" placeholder="89371234567")
+              label(for="inpcreationDate") Дата создания
+              input#inpcreationDate(type="date" name="creationDate")
             .form-group
-              label(for="inpemail") Email
-              input#inpemail(type="email" placeholder="employee@example.com")
+              label(for="inpid_client") Клиент
+              select#inpid_client(name="id_client")
+                option(value="") Выберите клиента
+                // Список клиентов будет заполнен JavaScript
             .form-group
-              label(for="inpposition_d") Должность
-              input#inpposition_d(type="text" placeholder="Старший клинер")
+              label(for="inptotalCost") Общая стоимость (₽)
+              input#inptotalCost(type="number" placeholder="0" min="0" name="totalCost")
             .form-group
-              label(for="inpspecialization") Специализация
-              input#inpspecialization(type="text" placeholder="Клинер офисных помещений")
+              label(for="inpplannedDate") Плановая дата выполнения
+              input#inpplannedDate(type="date" name="plannedDate")
+            .form-group
+              label(for="inpdescription") Описание заказа
+              textarea#inpdescription(placeholder="Описание заказа..." rows="3" name="description")
         .modal-footer
-          button.secondary-button#cancel_create_employee Отменить
-          button.primary-button#submit_create_employee Создать
+          button.secondary-button#cancel_create_order Отменить
+          button.primary-button#submit_create_order Создать
 
   script.
-    // JavaScript код остаётся без изменений
     document.addEventListener('DOMContentLoaded', function() {
-      const createBtn = document.getElementById('create_employee');
-      const popup = document.getElementById('create_employee_popup');
-      const closeBtn = document.getElementById('create_employee_popup_close');
-      const cancelBtn = document.getElementById('cancel_create_employee');
-      const submitBtn = document.getElementById('submit_create_employee');
+      const createBtn = document.getElementById('create_order');
+      const popup = document.getElementById('create_order_popup');
+      const closeBtn = document.getElementById('create_order_popup_close');
+      const cancelBtn = document.getElementById('cancel_create_order');
+      const submitBtn = document.getElementById('submit_create_order');
       
+      // Загружаем список клиентов при открытии модального окна
       if (createBtn) {
-        createBtn.addEventListener('click', function() {
-          popup.style.display = 'block';
+        createBtn.addEventListener('click', async function() {
+          try {
+            const response = await fetch('/clients/list');
+            const clients = await response.json();
+            const select = document.getElementById('inpid_client');
+            
+            // Очищаем текущие опции
+            select.innerHTML = '<option value="">Выберите клиента</option>';
+            
+            // Добавляем клиентов
+            clients.forEach(client => {
+              const option = document.createElement('option');
+              option.value = client.id;
+              option.textContent = client.name || `Клиент #${client.id}`;
+              select.appendChild(option);
+            });
+            
+            // Устанавливаем сегодняшнюю дату по умолчанию
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('inpcreationDate').value = today;
+            
+            popup.style.display = 'block';
+          } catch (error) {
+            console.error('Error loading clients:', error);
+            alert('Ошибка загрузки списка клиентов');
+          }
         });
       }
       
@@ -103,11 +145,7 @@ block content
       }
       
       function clearForm() {
-        document.getElementById('inpfio').value = '';
-        document.getElementById('inpphone').value = '';
-        document.getElementById('inpemail').value = '';
-        document.getElementById('inpposition_d').value = '';
-        document.getElementById('inpspecialization').value = '';
+        document.getElementById('orderForm').reset();
       }
       
       window.addEventListener('click', function(event) {
@@ -116,6 +154,51 @@ block content
           clearForm();
         }
       });
+      
+      // Обработка отправки формы
+      if (submitBtn) {
+        submitBtn.addEventListener('click', async function(e) {
+          e.preventDefault();
+          
+          const form = document.getElementById('orderForm');
+          const formData = new FormData(form);
+          const data = Object.fromEntries(formData.entries());
+          
+          // Валидация
+          if (!data.id_client || !data.totalCost) {
+            alert('Пожалуйста, заполните обязательные поля (клиент и общая стоимость)');
+            return;
+          }
+          
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Создание...';
+          
+          try {
+            const response = await fetch('/orders/create', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (result.msg === '') {
+              alert('Заказ успешно создан');
+              window.location.reload();
+            } else {
+              alert('Ошибка: ' + result.msg);
+            }
+          } catch (error) {
+            console.error('Error:', error);
+            alert('Ошибка при создании заказа');
+          } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Создать';
+          }
+        });
+      }
     });
 
   style.
@@ -133,6 +216,38 @@ block content
       font-weight: 600;
     }
     
+    .status-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .status-badge.новый { background-color: #e3f2fd; color: #1976d2; }
+    .status-badge.обработка-заказа-менеджером { background-color: #fff3e0; color: #f57c00; }
+    .status-badge.на-согласовании-зн { background-color: #f3e5f5; color: #7b1fa2; }
+    .status-badge.в-ожидании { background-color: #fff3e0; color: #f57c00; }
+    .status-badge.заказ-в-работе { background-color: #e8f5e8; color: #388e3c; }
+    .status-badge.заказ-выполнен { background-color: #e8f5e8; color: #388e3c; }
+    .status-badge.на-согласовании-акта { background-color: #fff3e0; color: #f57c00; }
+    .status-badge.акт-согласован { background-color: #e8f5e8; color: #388e3c; }
+    .status-badge.акт-не-согласован { background-color: #ffebee; color: #d32f2f; }
+    .status-badge.выставлен-счет-на-оплату { background-color: #fff3e0; color: #f57c00; }
+    .status-badge.заказ-оплачен { background-color: #e8f5e8; color: #388e3c; }
+    .status-badge.завершён { background-color: #f5f5f5; color: #616161; }
+
+    .description-cell {
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .form-group.full-width {
+      grid-column: 1 / -1;
+    }
+
     .content-card {
       background: #FFFFFF;
       border-radius: 12px;

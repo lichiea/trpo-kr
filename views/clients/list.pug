@@ -13,12 +13,12 @@ block content
   .page-container
     h1.page-title= title
     
-    if can_view_employees
+    if can_view_clients
       .actions-panel
-        button.primary-button(id='create_employee') Создать сотрудника
+        button.primary-button(id='create_client') Создать клиента
     
     .content-card
-      if employees && employees.length > 0
+      if clients && clients.length > 0
         .table-container
           table.data-table
             thead
@@ -27,31 +27,29 @@ block content
                 th ФИО
                 th Телефон
                 th Email
-                th Должность
-                th Специализация
+                th Тип лица
                 th ID пользователя
             tbody
-              each employee in employees
+              each client in clients
                 tr
                   td
-                    a(href='/employees/' + employee.id)= employee.id
+                    a(href='/clients/' + client.id)= client.id
                   td
-                    a(href='/employees/' + employee.id)= employee.fio
-                  td= employee.phone
-                  td= employee.email
-                  td= employee.position_d
-                  td= employee.specialization
-                  td= employee.id_pol
+                    a(href='/clients/' + client.id)= client.fio
+                  td= client.phone
+                  td= client.email
+                  td= client.type_l
+                  td= client.id_pol
       else
         .empty-state
-          p Нет сотрудников в базе данных
+          p Нет клиентов в базе данных
 
-    // Модальное окно для создания сотрудника
-    div#create_employee_popup.modal-window(style="display:none")
+    // Модальное окно для создания клиента
+    div#create_client_popup.modal-window(style="display:none")
       .modal-content
         .modal-header
-          h3 Создать сотрудника
-          button.modal-close#create_employee_popup_close ×
+          h3 Создать клиента
+          button.modal-close#create_client_popup_close ×
         .modal-body
           form.modal-form
             .form-group
@@ -59,28 +57,29 @@ block content
               input#inpfio(type="text" placeholder="Иванов И. И.")
             .form-group
               label(for="inpphone") Телефон
-              input#inpphone(type="text" placeholder="89371234567")
+              input#inpphone(type="number" placeholder="893799")
             .form-group
               label(for="inpemail") Email
-              input#inpemail(type="email" placeholder="employee@example.com")
+              input#inpemail(type="email" placeholder="client@example.com")
             .form-group
-              label(for="inpposition_d") Должность
-              input#inpposition_d(type="text" placeholder="Старший клинер")
+              label(for="inptype_l") Тип лица
+              select#inptype_l
+                option(value="") Выберите тип
+                option(value="Физическое лицо") Физическое лицо
+                option(value="Юридическое лицо") Юридическое лицо
             .form-group
-              label(for="inpspecialization") Специализация
-              input#inpspecialization(type="text" placeholder="Клинер офисных помещений")
+              label(for="inpid_pol") ID пользователя (опционально)
+              input#inpid_pol(type="number" placeholder="6")
         .modal-footer
-          button.secondary-button#cancel_create_employee Отменить
-          button.primary-button#submit_create_employee Создать
+          button.secondary-button#cancel_create_client Отменить
+          button.primary-button#submit_create_client Создать
 
   script.
-    // JavaScript код остаётся без изменений
     document.addEventListener('DOMContentLoaded', function() {
-      const createBtn = document.getElementById('create_employee');
-      const popup = document.getElementById('create_employee_popup');
-      const closeBtn = document.getElementById('create_employee_popup_close');
-      const cancelBtn = document.getElementById('cancel_create_employee');
-      const submitBtn = document.getElementById('submit_create_employee');
+      const createBtn = document.getElementById('create_client');
+      const popup = document.getElementById('create_client_popup');
+      const closeBtn = document.getElementById('create_client_popup_close');
+      const cancelBtn = document.getElementById('cancel_create_client');
       
       if (createBtn) {
         createBtn.addEventListener('click', function() {
@@ -106,8 +105,8 @@ block content
         document.getElementById('inpfio').value = '';
         document.getElementById('inpphone').value = '';
         document.getElementById('inpemail').value = '';
-        document.getElementById('inpposition_d').value = '';
-        document.getElementById('inpspecialization').value = '';
+        document.getElementById('inptype_l').value = '';
+        document.getElementById('inpid_pol').value = '';
       }
       
       window.addEventListener('click', function(event) {

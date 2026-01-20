@@ -2,7 +2,6 @@ extends ../layout
 
 block content
 
-  // Первое навигационное поле
   header.header
     .container
       .header-content
@@ -13,74 +12,66 @@ block content
   .page-container
     h1.page-title= title
     
-    if can_view_employees
+    if can_view_docs
       .actions-panel
-        button.primary-button(id='create_employee') Создать сотрудника
+        button.primary-button(id='create_doc') Создать документ
     
     .content-card
-      if employees && employees.length > 0
+      if docs && docs.length > 0
         .table-container
           table.data-table
             thead
               tr 
                 th ID
-                th ФИО
-                th Телефон
-                th Email
-                th Должность
-                th Специализация
-                th ID пользователя
+                th ID заказа
+                th Тип документа
+                th Дата создания
+                th Путь к файлу
             tbody
-              each employee in employees
+              each doc in docs
                 tr
                   td
-                    a(href='/employees/' + employee.id)= employee.id
-                  td
-                    a(href='/employees/' + employee.id)= employee.fio
-                  td= employee.phone
-                  td= employee.email
-                  td= employee.position_d
-                  td= employee.specialization
-                  td= employee.id_pol
+                    a(href='/docs/' + doc.id)= doc.id
+                  td= doc.id_order
+                  td= doc.type_doc
+                  td= doc.creationDate
+                  td= doc.filePath
       else
         .empty-state
-          p Нет сотрудников в базе данных
+          p Нет документов в базе данных
 
-    // Модальное окно для создания сотрудника
-    div#create_employee_popup.modal-window(style="display:none")
+    div#create_doc_popup.modal-window(style="display:none")
       .modal-content
         .modal-header
-          h3 Создать сотрудника
-          button.modal-close#create_employee_popup_close ×
+          h3 Создать документ
+          button.modal-close#create_doc_popup_close ×
         .modal-body
           form.modal-form
             .form-group
-              label(for="inpfio") ФИО
-              input#inpfio(type="text" placeholder="Иванов И. И.")
+              label(for="inpid_order") ID заказа
+              input#inpid_order(type="number" placeholder="1")
             .form-group
-              label(for="inpphone") Телефон
-              input#inpphone(type="text" placeholder="89371234567")
+              label(for="inptype_doc") Тип документа
+              select#inptype_doc
+                option(value="Заказ-наряд") Заказ-наряд
+                option(value="Акт об оказании услуг") Акт об оказании услуг
             .form-group
-              label(for="inpemail") Email
-              input#inpemail(type="email" placeholder="employee@example.com")
+              label(for="inpcreationDate") Дата создания
+              input#inpcreationDate(type="date")
             .form-group
-              label(for="inpposition_d") Должность
-              input#inpposition_d(type="text" placeholder="Старший клинер")
-            .form-group
-              label(for="inpspecialization") Специализация
-              input#inpspecialization(type="text" placeholder="Клинер офисных помещений")
+              label(for="inpfilePath") Путь к файлу
+              input#inpfilePath(type="text" placeholder="/docs/file.pdf")
         .modal-footer
-          button.secondary-button#cancel_create_employee Отменить
-          button.primary-button#submit_create_employee Создать
+          button.secondary-button#cancel_create_doc Отменить
+          button.primary-button#submit_create_doc Создать
 
   script.
-    // JavaScript код остаётся без изменений
     document.addEventListener('DOMContentLoaded', function() {
-      const createBtn = document.getElementById('create_employee');
-      const popup = document.getElementById('create_employee_popup');
-      const closeBtn = document.getElementById('create_employee_popup_close');
-      const cancelBtn = document.getElementById('cancel_create_employee');
-      const submitBtn = document.getElementById('submit_create_employee');
+      const createBtn = document.getElementById('create_doc');
+      const popup = document.getElementById('create_doc_popup');
+      const closeBtn = document.getElementById('create_doc_popup_close');
+      const cancelBtn = document.getElementById('cancel_create_doc');
+      const submitBtn = document.getElementById('submit_create_doc');
       
       if (createBtn) {
         createBtn.addEventListener('click', function() {
@@ -103,11 +94,10 @@ block content
       }
       
       function clearForm() {
-        document.getElementById('inpfio').value = '';
-        document.getElementById('inpphone').value = '';
-        document.getElementById('inpemail').value = '';
-        document.getElementById('inpposition_d').value = '';
-        document.getElementById('inpspecialization').value = '';
+        document.getElementById('inpid_order').value = '';
+        document.getElementById('inptype_doc').value = 'Заказ-наряд';
+        document.getElementById('inpcreationDate').value = '';
+        document.getElementById('inpfilePath').value = '';
       }
       
       window.addEventListener('click', function(event) {
@@ -116,6 +106,47 @@ block content
           clearForm();
         }
       });
+      
+      // Обработка отправки формы
+      if (submitBtn) {
+        submitBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          
+          let data = {
+            id_order: document.getElementById('inpid_order').value,
+            type_doc: document.getElementById('inptype_doc').value,
+            creationDate: document.getElementById('inpcreationDate').value,
+            filePath: document.getElementById('inpfilePath').value
+          };
+
+          // Валидация
+          if (!data.id_order || !data.type_doc || !data.creationDate) {
+            alert('Пожалуйста, заполните обязательные поля (ID заказа, тип документа и дата создания)');
+            return;
+          }
+
+          fetch('/docs/create', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+          })
+          .then(response => response.json())
+          .then(data => {
+            if (data.msg === '') {
+              alert('Документ создан');
+              window.location.reload();
+            } else {
+              alert(data.msg);
+            }
+          })
+          .catch(error => {
+            console.error('Error:', error);
+            alert('Ошибка при создании документа: ' + error);
+          });
+        });
+      }
     });
 
   style.

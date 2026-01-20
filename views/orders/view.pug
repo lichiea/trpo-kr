@@ -12,124 +12,92 @@ block content
 
   .page-container
     .navigation-links
-      a.back-link(href='/employees') ← Назад к списку сотрудников
+      a.back-link(href='/orders') ← Назад к списку заказов
     
     .content-card
       .profile-header
         h1.page-title= title
   
       .profile-content
-        form#employeeForm.profile-form
+        form#orderForm.profile-form
           .form-section
             h2.section-title Основная информация
             
             .form-grid
               .form-group
-                label(for="editfio") ФИО:
-                if can_view_employees
-                  input#editfio(type='text', value=employee.fio, name="fio")
+                label(for="editstatus") Статус:
+                if can_view_orders
+                  select#editstatus(name="status")
+                    each status in statuses
+                      option(value=status.status selected=(order.status === status.status))= status.status
                 else
-                  .form-value= employee.fio
+                  .form-value= order.status
               
               .form-group
-                label(for="editphone") Телефон:
-                if can_view_employees
-                  input#editphone(type='text', value=employee.phone, name="phone")
+                label(for="editcreationDate") Дата создания:
+                if can_view_orders
+                  input#editcreationDate(type='date', value=order.creationDate ? new Date(order.creationDate).toISOString().split('T')[0] : '', name="creationDate")
                 else
-                  .form-value= employee.phone
+                  .form-value= order.creationDate ? new Date(order.creationDate).toLocaleDateString('ru-RU') : '-'
               
               .form-group
-                label(for="editemail") Email:
-                if can_view_employees
-                  input#editemail(type='email', value=employee.email, name="email")
+                label(for="editid_client") Клиент:
+                if can_view_orders
+                  select#editid_client(name="id_client")
+                    each client in clients
+                      option(value=client.id selected=(order.id_client == client.id))= client.fio
                 else
-                  .form-value= employee.email
+                  .form-value= order.client_fio || 'Клиент #' + order.id_client
               
               .form-group
-                label(for="editposition_d") Должность:
-                if can_view_employees
-                  input#editposition_d(type='text', value=employee.position_d, name="position_d")
+                label(for="edittotalCost") Общая стоимость (₽):
+                if can_view_orders
+                  input#edittotalCost(type='number', value=order.totalCost, name="totalCost" min="0")
                 else
-                  .form-value= employee.position_d
+                  .form-value= order.totalCost ? order.totalCost.toLocaleString('ru-RU') + ' ₽' : '-'
               
               .form-group
-                label(for="editspecialization") Специализация:
-                if can_view_employees
-                  input#editspecialization(type='text', value=employee.specialization, name="specialization")
+                label(for="editplannedDate") Плановая дата выполнения:
+                if can_view_orders
+                  input#editplannedDate(type='date', value=order.plannedDate ? new Date(order.plannedDate).toISOString().split('T')[0] : '', name="plannedDate")
                 else
-                  .form-value= employee.specialization
+                  .form-value= order.plannedDate ? new Date(order.plannedDate).toLocaleDateString('ru-RU') : '-'
               
-              .form-group
-                label(for="editid_pol") ID пользователя:
-                if can_view_employees
-                  input#editid_pol(type='number', value=employee.id_pol, name="id_pol")
+              .form-group.full-width
+                label(for="editdescription") Описание заказа:
+                if can_view_orders
+                  textarea#editdescription(name="description" rows="4")= order.description || ''
                 else
-                  .form-value= employee.id_pol
+                  .form-value= order.description || '-'
 
               .form-actions
                 .buttons-row
-                  if can_view_employees
+                  if can_view_orders
                     button.primary-button#editSaveButton(type="button") Сохранить изменения
-                    button.danger-button#deleteButton(type="button") Удалить сотрудника
+                    button.danger-button#deleteButton(type="button") Удалить заказ
                   else
-                    .no-permission-message У вас нет прав для редактирования профиля        
+                    .no-permission-message У вас нет прав для редактирования заказа
 
-        if userData
+        if orderItems && orderItems.length > 0
           .info-section
-            h2.section-title Данные пользователя в системе
+            h2.section-title Услуги в заказе
             
-            .info-grid
-              .info-item
-                .info-label ID пользователя:
-                .info-value= userData.user_id
-              .info-item
-                .info-label Логин:
-                .info-value= userData.login || 'Не указан'
-              .info-item
-                .info-label Роль:
-                .info-value= userData.role || 'Не указана'
+            .table-container
+              table.data-table
+                thead
+                  tr 
+                    th Услуга
+                    th Описание услуги
+                    th Стоимость (₽)
+                tbody
+                  each item in orderItems
+                    tr
+                      td= item.service_name || 'Услуга'
+                      td= item.service_description || '-'
+                      td= item.service_cost ? item.service_cost.toLocaleString('ru-RU') + ' ₽' : '-'
         else
           .info-section
-            .empty-message Данные пользователя не найдены в системе
-        
-        if isTeamLeader || teamInfo
-          .info-section
-            h2.section-title Информация о бригаде
-            
-            if isTeamLeader
-              .info-card.team-leader-card
-                .info-icon 🏆
-                .info-content
-                  h3 Сотрудник является бригадиром
-                  .info-details
-                    .detail
-                      .detail-label Бригада №:
-                      .detail-value= isTeamLeader.team_id
-                    .detail
-                      .detail-label Статус:
-                      .detail-value Руководитель бригады
-            
-            else if teamInfo
-              .info-card.team-member-card
-                .info-icon 👥
-                .info-content
-                  h3 Сотрудник входит в бригаду
-                  .info-details
-                    .detail
-                      .detail-label Номер бригады:
-                      .detail-value= teamInfo.team_id
-                    
-                    if teamLeaderInfo
-                      .detail
-                        .detail-label Бригадир:
-                        .detail-value= teamLeaderInfo.team_leader_fio
-                      .detail
-                        .detail-label Должность бригадира:
-                        .detail-value= teamLeaderInfo.team_leader_position
-        else
-          .info-section
-            .info-card
-              .empty-message Сотрудник не входит ни в одну бригаду
+            .empty-message В этом заказе нет услуг
 
     #deleteConfirmModal.modal-window(style="display: none;")
       .modal-content
@@ -140,10 +108,10 @@ block content
           .warning-message
             .warning-icon ⚠️
             .warning-text
-              h4 Вы уверены, что хотите удалить сотрудника?
+              h4 Вы уверены, что хотите удалить заказ?
               p
-                strong= employee.fio
-              p Это действие нельзя отменить. Все данные сотрудника будут удалены безвозвратно.
+                strong Заказ ##{order.id}
+              p Все данные заказа будут удалены безвозвратно.
         .modal-footer
           button.secondary-button#cancelDelete Отмена
           button.danger-button#confirmDelete Удалить
@@ -151,24 +119,18 @@ block content
   script.
     document.addEventListener('DOMContentLoaded', function() {
       // ============ ПЕРЕМЕННЫЕ ============
-      let isEditing = false;
-      const saveButton = document.getElementById('editSaveButton'); 
-      const formInputs = document.querySelectorAll('#employeeForm input');
-      const formValues = document.querySelectorAll('#employeeForm .form-value');
-      
-      // Элементы для удаления
+      const saveButton = document.getElementById('editSaveButton');
       const deleteButton = document.getElementById('deleteButton');
       const deleteModal = document.getElementById('deleteConfirmModal');
       const deleteModalClose = document.getElementById('deleteModalClose');
       const cancelDeleteButton = document.getElementById('cancelDelete');
       const confirmDeleteButton = document.getElementById('confirmDelete');
       
-      // Получаем ID сотрудника из URL
+      // Получаем ID заказа из URL
       const pathSegments = window.location.pathname.split('/');
-      const employeeId = pathSegments[pathSegments.length - 1];
+      const orderId = pathSegments[pathSegments.length - 1];
       
       // ============ ФУНКЦИИ ============
-      // Закрытие модального окна удаления
       function closeDeleteModal() {
         if (deleteModal) {
           deleteModal.style.display = 'none';
@@ -176,7 +138,6 @@ block content
         }
       }
       
-      // Показать/скрыть индикатор загрузки на кнопке
       function toggleButtonLoading(button, isLoading, loadingText = 'Загрузка...') {
         if (isLoading) {
           button.disabled = true;
@@ -184,61 +145,33 @@ block content
           button.innerHTML = spinner + loadingText;
         } else {
           button.disabled = false;
-          // Восстанавливаем текст в зависимости от состояния
-          if (button === editSaveButton) {
-            button.innerHTML = isEditing ? 'Сохранить изменения' : 'Редактировать профиль';
-          } else {
-            button.innerHTML = button.dataset.originalText || button.textContent;
-          }
+          button.innerHTML = button.dataset.originalText || button.textContent;
         }
       }
       
-      // Валидация формы
-      function validateFormData(formData) {
-        if (!formData.fio || !formData.phone || !formData.position_d) {
-          alert('Пожалуйста, заполните обязательные поля (ФИО, телефон и должность)');
-          return false;
-        }
-        
-        if (formData.id_pol) {
-          formData.id_pol = parseInt(formData.id_pol);
-          if (isNaN(formData.id_pol)) {
-            alert('ID пользователя должно быть числом');
-            return false;
-          }
-        }
-        
-        return true;
-      }
-      
-      // ============ ОБРАБОТКА РЕДАКТИРОВАНИЯ ============
+      // ============ ОБРАБОТКА СОХРАНЕНИЯ ============
       if (saveButton) {
         saveButton.addEventListener('click', async function() {
-          // Собираем данные из полей ввода (они всегда видны)
           const formData = {
-            fio: document.getElementById('editfio').value.trim(),
-            phone: document.getElementById('editphone').value.trim(),
-            email: document.getElementById('editemail').value.trim(),
-            position_d: document.getElementById('editposition_d').value.trim(),
-            specialization: document.getElementById('editspecialization').value.trim(),
-            id_pol: document.getElementById('editid_pol').value.trim()
+            status: document.getElementById('editstatus').value,
+            creationDate: document.getElementById('editcreationDate').value,
+            id_client: document.getElementById('editid_client').value,
+            totalCost: document.getElementById('edittotalCost').value,
+            plannedDate: document.getElementById('editplannedDate').value,
+            description: document.getElementById('editdescription').value
           };
           
-          // Простая валидация
-          if (!formData.fio || !formData.phone || !formData.position_d) {
-            alert('Заполните ФИО, телефон и должность');
+          // Валидация
+          if (!formData.id_client || !formData.totalCost) {
+            alert('Заполните обязательные поля (клиент и общая стоимость)');
             return;
           }
           
-          // Преобразуем id_pol в число если есть
-          if (formData.id_pol && formData.id_pol !== '') {
-            formData.id_pol = parseInt(formData.id_pol);
-            if (isNaN(formData.id_pol)) {
-              alert('ID пользователя должно быть числом');
-              return;
-            }
-          } else {
-            formData.id_pol = null;
+          // Преобразуем totalCost в число
+          formData.totalCost = parseInt(formData.totalCost);
+          if (isNaN(formData.totalCost) || formData.totalCost < 0) {
+            alert('Общая стоимость должна быть положительным числом');
+            return;
           }
           
           // Показываем загрузку
@@ -246,8 +179,7 @@ block content
           saveButton.textContent = 'Сохранение...';
           
           try {
-            // Отправляем запрос
-            const response = await fetch(`/employees/update/${employeeId}`, {
+            const response = await fetch(`/orders/update/${orderId}`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -258,23 +190,15 @@ block content
             const data = await response.json();
             
             if (data.msg === '') {
-              alert('Данные сотрудника успешно обновлены');
-              // Обновляем текст на странице (если есть)
-              if (document.getElementById('viewFio')) {
-                document.getElementById('viewFio').textContent = formData.fio;
-              }
-              if (document.getElementById('viewPhone')) {
-                document.getElementById('viewPhone').textContent = formData.phone;
-              }
+              alert('Данные заказа успешно обновлены');
+              window.location.reload();
             } else {
               alert('Ошибка: ' + data.msg);
             }
-            
           } catch (error) {
             console.error('Error:', error);
             alert('Ошибка при обновлении данных');
           } finally {
-            // Восстанавливаем кнопку
             saveButton.disabled = false;
             saveButton.textContent = 'Сохранить изменения';
           }
@@ -282,14 +206,8 @@ block content
       }
       
       // ============ ОБРАБОТКА УДАЛЕНИЯ ============
-      // Открытие модального окна удаления
       if (deleteButton) {
         deleteButton.addEventListener('click', function() {
-          if (isEditing) {
-            alert('Завершите редактирование перед удалением сотрудника');
-            return;
-          }
-          
           if (deleteModal) {
             deleteModal.style.display = 'flex';
             document.body.style.overflow = 'hidden';
@@ -297,7 +215,6 @@ block content
         });
       }
       
-      // Закрытие модального окна
       if (deleteModalClose) {
         deleteModalClose.addEventListener('click', closeDeleteModal);
       }
@@ -306,7 +223,6 @@ block content
         cancelDeleteButton.addEventListener('click', closeDeleteModal);
       }
       
-      // Закрытие модального окна при клике вне его
       if (deleteModal) {
         deleteModal.addEventListener('click', function(event) {
           if (event.target === deleteModal) {
@@ -315,22 +231,18 @@ block content
         });
       }
       
-      // Закрытие по ESC
       document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape' && deleteModal && deleteModal.style.display === 'flex') {
           closeDeleteModal();
         }
       });
       
-      // Подтверждение удаления
       if (confirmDeleteButton) {
         confirmDeleteButton.addEventListener('click', async function() {
-          // Показываем индикатор загрузки
           toggleButtonLoading(confirmDeleteButton, true, 'Удаление...');
           
           try {
-            // ВАЖНО: используем правильный URL
-            const response = await fetch(`/employees/delete/${employeeId}`, {
+            const response = await fetch(`/orders/delete/${orderId}`, {
               method: 'DELETE',
               headers: {
                 'Content-Type': 'application/json',
@@ -340,17 +252,15 @@ block content
             const data = await response.json();
             
             if (data.msg === '') {
-              alert('Сотрудник успешно удалён');
-              // Перенаправляем на список сотрудников
-              window.location.href = '/employees';
+              alert('Заказ успешно удалён');
+              window.location.href = '/orders';
             } else {
               alert('Ошибка: ' + data.msg);
               closeDeleteModal();
             }
-            
           } catch (error) {
             console.error('Error:', error);
-            alert('Ошибка при удалении сотрудника');
+            alert('Ошибка при удалении заказа');
           } finally {
             toggleButtonLoading(confirmDeleteButton, false);
           }
@@ -372,8 +282,34 @@ block content
           vertical-align: middle;
         }
         
+        .status-badge {
+          display: inline-block;
+          padding: 4px 8px;
+          border-radius: 12px;
+          font-size: 12px;
+          font-weight: 500;
+        }
+        
+        .status-badge.новый { background-color: #e3f2fd; color: #1976d2; }
+        .status-badge.обработка-заказа-менеджером { background-color: #fff3e0; color: #f57c00; }
+        .status-badge.на-согласовании-зн { background-color: #f3e5f5; color: #7b1fa2; }
+        .status-badge.заказ-в-работе { background-color: #e8f5e8; color: #388e3c; }
+        .status-badge.заказ-выполнен { background-color: #e8f5e8; color: #388e3c; }
+        .status-badge.завершён { background-color: #f5f5f5; color: #616161; }
+        
         @keyframes spin {
           to { transform: rotate(360deg); }
+        }
+        
+        .full-width {
+          grid-column: 1 / -1;
+        }
+        
+        .description-cell {
+          max-width: 200px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
       `;
       document.head.appendChild(style);
@@ -386,7 +322,39 @@ block content
       margin: 0 auto;
       padding: 30px 20px;
     }
-    
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .status-badge.новый { background-color: #e3f2fd; color: #1976d2; }
+    .status-badge.обработка-заказа-менеджером { background-color: #fff3e0; color: #f57c00; }
+    .status-badge.на-согласовании-зн { background-color: #f3e5f5; color: #7b1fa2; }
+    .status-badge.в-ожидании { background-color: #fff3e0; color: #f57c00; }
+    .status-badge.заказ-в-работе { background-color: #e8f5e8; color: #388e3c; }
+    .status-badge.заказ-выполнен { background-color: #e8f5e8; color: #388e3c; }
+    .status-badge.на-согласовании-акта { background-color: #fff3e0; color: #f57c00; }
+    .status-badge.акт-согласован { background-color: #e8f5e8; color: #388e3c; }
+    .status-badge.акт-не-согласован { background-color: #ffebee; color: #d32f2f; }
+    .status-badge.выставлен-счет-на-оплату { background-color: #fff3e0; color: #f57c00; }
+    .status-badge.заказ-оплачен { background-color: #e8f5e8; color: #388e3c; }
+    .status-badge.завершён { background-color: #f5f5f5; color: #616161; }
+
+    .description-cell {
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .form-group.full-width {
+      grid-column: 1 / -1;
+    }
+        
     .content-card {
       background: #FFFFFF;
       border-radius: 12px;

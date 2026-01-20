@@ -1,8 +1,6 @@
 extends ../layout
 
 block content
-
-  // Первое навигационное поле
   header.header
     .container
       .header-content
@@ -13,110 +11,56 @@ block content
   .page-container
     h1.page-title= title
     
-    if can_view_employees
+    if can_view_users
       .actions-panel
-        button.primary-button(id='create_employee') Создать сотрудника
+        button.primary-button(id='create_user') Создать пользователя
     
     .content-card
-      if employees && employees.length > 0
+      if users && users.length > 0
         .table-container
           table.data-table
             thead
               tr 
                 th ID
-                th ФИО
-                th Телефон
-                th Email
-                th Должность
-                th Специализация
-                th ID пользователя
+                th Логин
+                th Пароль
+                th Роль
             tbody
-              each employee in employees
+              each user in users
                 tr
                   td
-                    a(href='/employees/' + employee.id)= employee.id
+                    a(href='/users/' + user.id)= user.id
                   td
-                    a(href='/employees/' + employee.id)= employee.fio
-                  td= employee.phone
-                  td= employee.email
-                  td= employee.position_d
-                  td= employee.specialization
-                  td= employee.id_pol
+                    a(href='/users/' + user.id)= user.login
+                  td= '******'
+                  td= user.id_role
       else
         .empty-state
-          p Нет сотрудников в базе данных
+          p Нет пользователей в базе данных
 
-    // Модальное окно для создания сотрудника
-    div#create_employee_popup.modal-window(style="display:none")
+    div#create_user_popup.modal-window(style="display:none")
       .modal-content
         .modal-header
-          h3 Создать сотрудника
-          button.modal-close#create_employee_popup_close ×
+          h3 Создать пользователя
+          button.modal-close#create_user_popup_close ×
         .modal-body
           form.modal-form
             .form-group
-              label(for="inpfio") ФИО
-              input#inpfio(type="text" placeholder="Иванов И. И.")
+              label(for="inplogin") Логин
+              input#inplogin(type="text" placeholder="user123")
             .form-group
-              label(for="inpphone") Телефон
-              input#inpphone(type="text" placeholder="89371234567")
+              label(for="inppass") Пароль
+              input#inppass(type="password" placeholder="********")
             .form-group
-              label(for="inpemail") Email
-              input#inpemail(type="email" placeholder="employee@example.com")
-            .form-group
-              label(for="inpposition_d") Должность
-              input#inpposition_d(type="text" placeholder="Старший клинер")
-            .form-group
-              label(for="inpspecialization") Специализация
-              input#inpspecialization(type="text" placeholder="Клинер офисных помещений")
+              label(for="inpid_role") Роль
+              input#inpid_role(type="text" placeholder="admin/user")
         .modal-footer
-          button.secondary-button#cancel_create_employee Отменить
-          button.primary-button#submit_create_employee Создать
+          button.secondary-button#cancel_create_user Отменить
+          button.primary-button#submit_create_user Создать
 
-  script.
-    // JavaScript код остаётся без изменений
-    document.addEventListener('DOMContentLoaded', function() {
-      const createBtn = document.getElementById('create_employee');
-      const popup = document.getElementById('create_employee_popup');
-      const closeBtn = document.getElementById('create_employee_popup_close');
-      const cancelBtn = document.getElementById('cancel_create_employee');
-      const submitBtn = document.getElementById('submit_create_employee');
-      
-      if (createBtn) {
-        createBtn.addEventListener('click', function() {
-          popup.style.display = 'block';
-        });
-      }
-      
-      if (closeBtn) {
-        closeBtn.addEventListener('click', function() {
-          popup.style.display = 'none';
-          clearForm();
-        });
-      }
-      
-      if (cancelBtn) {
-        cancelBtn.addEventListener('click', function() {
-          popup.style.display = 'none';
-          clearForm();
-        });
-      }
-      
-      function clearForm() {
-        document.getElementById('inpfio').value = '';
-        document.getElementById('inpphone').value = '';
-        document.getElementById('inpemail').value = '';
-        document.getElementById('inpposition_d').value = '';
-        document.getElementById('inpspecialization').value = '';
-      }
-      
-      window.addEventListener('click', function(event) {
-        if (event.target === popup) {
-          popup.style.display = 'none';
-          clearForm();
-        }
-      });
-    });
+  // Подключаем jQuery и наш скрипт
+  script(src="https://code.jquery.com/jquery-3.6.0.min.js")
+  script(src="/javascripts/users.js")
 
   style.
     /* Общие стили */

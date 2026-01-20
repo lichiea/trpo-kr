@@ -13,77 +13,82 @@ block content
   .page-container
     h1.page-title= title
     
-    if can_view_employees
+    if can_view_teams
       .actions-panel
-        button.primary-button(id='create_employee') Создать сотрудника
+        button.primary-button(id='create_team') Создать бригаду
     
     .content-card
-      if employees && employees.length > 0
+      if teams && teams.length > 0
         .table-container
           table.data-table
             thead
               tr 
                 th ID
-                th ФИО
-                th Телефон
-                th Email
-                th Должность
-                th Специализация
-                th ID пользователя
+                th Бригадир
+                th Должность бригадира
+                th Количество сотрудников
             tbody
-              each employee in employees
+              each team in teams
                 tr
                   td
-                    a(href='/employees/' + employee.id)= employee.id
+                    a(href='/teams/' + team.id)= team.id
                   td
-                    a(href='/employees/' + employee.id)= employee.fio
-                  td= employee.phone
-                  td= employee.email
-                  td= employee.position_d
-                  td= employee.specialization
-                  td= employee.id_pol
+                    if team.taskmaster_fio
+                      a(href='/employees/' + team.id_taskmaster)= team.taskmaster_fio
+                    else
+                      | Не назначен
+                  td= team.taskmaster_position || 'Не указана'
+                  td= team.members_count
       else
         .empty-state
-          p Нет сотрудников в базе данных
+          p Нет бригад в базе данных
 
-    // Модальное окно для создания сотрудника
-    div#create_employee_popup.modal-window(style="display:none")
+    // Модальное окно для создания бригады
+    div#create_team_popup.modal-window(style="display:none")
       .modal-content
         .modal-header
-          h3 Создать сотрудника
-          button.modal-close#create_employee_popup_close ×
+          h3 Создать бригаду
+          button.modal-close#create_team_popup_close ×
         .modal-body
           form.modal-form
             .form-group
-              label(for="inpfio") ФИО
-              input#inpfio(type="text" placeholder="Иванов И. И.")
-            .form-group
-              label(for="inpphone") Телефон
-              input#inpphone(type="text" placeholder="89371234567")
-            .form-group
-              label(for="inpemail") Email
-              input#inpemail(type="email" placeholder="employee@example.com")
-            .form-group
-              label(for="inpposition_d") Должность
-              input#inpposition_d(type="text" placeholder="Старший клинер")
-            .form-group
-              label(for="inpspecialization") Специализация
-              input#inpspecialization(type="text" placeholder="Клинер офисных помещений")
+              label(for="inpTaskmaster") Бригадир
+              select#inpTaskmaster
+                option(value="") Выберите бригадира
+                // Опции будут заполнены через JavaScript
         .modal-footer
-          button.secondary-button#cancel_create_employee Отменить
-          button.primary-button#submit_create_employee Создать
+          button.secondary-button#cancel_create_team Отменить
+          button.primary-button#submit_create_team Создать
 
   script.
-    // JavaScript код остаётся без изменений
     document.addEventListener('DOMContentLoaded', function() {
-      const createBtn = document.getElementById('create_employee');
-      const popup = document.getElementById('create_employee_popup');
-      const closeBtn = document.getElementById('create_employee_popup_close');
-      const cancelBtn = document.getElementById('cancel_create_employee');
-      const submitBtn = document.getElementById('submit_create_employee');
+      const createBtn = document.getElementById('create_team');
+      const popup = document.getElementById('create_team_popup');
+      const closeBtn = document.getElementById('create_team_popup_close');
+      const cancelBtn = document.getElementById('cancel_create_team');
+      const submitBtn = document.getElementById('submit_create_team');
+      const taskmasterSelect = document.getElementById('inpTaskmaster');
+      
+      // Загружаем список сотрудников для выбора бригадира
+      async function loadEmployees() {
+        try {
+          const response = await fetch('/employees/list-all');
+          const data = await response.json();
+          taskmasterSelect.innerHTML = '<option value="">Выберите бригадира</option>';
+          data.forEach(employee => {
+            const option = document.createElement('option');
+            option.value = employee.id;
+            option.textContent = `${employee.fio} (${employee.position_d || 'без должности'})`;
+            taskmasterSelect.appendChild(option);
+          });
+        } catch (error) {
+          console.error('Error loading employees:', error);
+        }
+      }
       
       if (createBtn) {
         createBtn.addEventListener('click', function() {
+          loadEmployees();
           popup.style.display = 'block';
         });
       }
@@ -103,11 +108,54 @@ block content
       }
       
       function clearForm() {
-        document.getElementById('inpfio').value = '';
-        document.getElementById('inpphone').value = '';
-        document.getElementById('inpemail').value = '';
-        document.getElementById('inpposition_d').value = '';
-        document.getElementById('inpspecialization').value = '';
+        if (taskmasterSelect) {
+          taskmasterSelect.value = '';
+        }
+      }
+      
+      if (submitBtn) {
+        submitBtn.addEventListener('click', async function(e) {
+          e.preventDefault();
+          
+          const data = {
+            id_taskmaster: taskmasterSelect.value
+          };
+          
+          // Валидация
+          if (!data.id_taskmaster) {
+            alert('Пожалуйста, выберите бригадира');
+            return;
+          }
+          
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Создание...';
+          
+          try {
+            const response = await fetch('/teams/create', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (result.msg === '') {
+              alert('Бригада создана');
+              window.location.reload();
+            } else {
+              alert(result.msg);
+              submitBtn.disabled = false;
+              submitBtn.textContent = 'Создать';
+            }
+          } catch (error) {
+            console.error('Error:', error);
+            alert('Ошибка при создании бригады: ' + error);
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Создать';
+          }
+        });
       }
       
       window.addEventListener('click', function(event) {

@@ -1,8 +1,6 @@
 extends ../layout
 
 block content
-
-  // Первое навигационное поле
   header.header
     .container
       .header-content
@@ -13,74 +11,55 @@ block content
   .page-container
     h1.page-title= title
     
-    if can_view_employees
+    if can_view_transports
       .actions-panel
-        button.primary-button(id='create_employee') Создать сотрудника
+        button.primary-button(id='create_transport') Добавить транспорт
     
     .content-card
-      if employees && employees.length > 0
+      if transports && transports.length > 0
         .table-container
           table.data-table
             thead
               tr 
                 th ID
-                th ФИО
-                th Телефон
-                th Email
-                th Должность
-                th Специализация
-                th ID пользователя
+                th Модель
+                th Регистрационный номер
             tbody
-              each employee in employees
+              each transport in transports
                 tr
                   td
-                    a(href='/employees/' + employee.id)= employee.id
+                    a(href='/transports/' + transport.id)= transport.id
                   td
-                    a(href='/employees/' + employee.id)= employee.fio
-                  td= employee.phone
-                  td= employee.email
-                  td= employee.position_d
-                  td= employee.specialization
-                  td= employee.id_pol
+                    a(href='/transports/' + transport.id)= transport.model
+                  td= transport.registrationnumber
       else
         .empty-state
-          p Нет сотрудников в базе данных
+          p Нет транспортных средств в базе данных
 
-    // Модальное окно для создания сотрудника
-    div#create_employee_popup.modal-window(style="display:none")
+    div#create_transport_popup.modal-window(style="display:none")
       .modal-content
         .modal-header
-          h3 Создать сотрудника
-          button.modal-close#create_employee_popup_close ×
+          h3 Добавить транспортное средство
+          button.modal-close#create_transport_popup_close ×
         .modal-body
           form.modal-form
             .form-group
-              label(for="inpfio") ФИО
-              input#inpfio(type="text" placeholder="Иванов И. И.")
+              label(for="inpmodel") Модель
+              input#inpmodel(type="text" placeholder="ГАЗель NEXT")
             .form-group
-              label(for="inpphone") Телефон
-              input#inpphone(type="text" placeholder="89371234567")
-            .form-group
-              label(for="inpemail") Email
-              input#inpemail(type="email" placeholder="employee@example.com")
-            .form-group
-              label(for="inpposition_d") Должность
-              input#inpposition_d(type="text" placeholder="Старший клинер")
-            .form-group
-              label(for="inpspecialization") Специализация
-              input#inpspecialization(type="text" placeholder="Клинер офисных помещений")
+              label(for="inpregistrationNumber") Регистрационный номер
+              input#inpregistrationNumber(type="text" placeholder="А123БВ777")
         .modal-footer
-          button.secondary-button#cancel_create_employee Отменить
-          button.primary-button#submit_create_employee Создать
+          button.secondary-button#cancel_create_transport Отменить
+          button.primary-button#submit_create_transport Добавить
 
   script.
-    // JavaScript код остаётся без изменений
     document.addEventListener('DOMContentLoaded', function() {
-      const createBtn = document.getElementById('create_employee');
-      const popup = document.getElementById('create_employee_popup');
-      const closeBtn = document.getElementById('create_employee_popup_close');
-      const cancelBtn = document.getElementById('cancel_create_employee');
-      const submitBtn = document.getElementById('submit_create_employee');
+      const createBtn = document.getElementById('create_transport');
+      const popup = document.getElementById('create_transport_popup');
+      const closeBtn = document.getElementById('create_transport_popup_close');
+      const cancelBtn = document.getElementById('cancel_create_transport');
+      const submitBtn = document.getElementById('submit_create_transport');
       
       if (createBtn) {
         createBtn.addEventListener('click', function() {
@@ -103,11 +82,8 @@ block content
       }
       
       function clearForm() {
-        document.getElementById('inpfio').value = '';
-        document.getElementById('inpphone').value = '';
-        document.getElementById('inpemail').value = '';
-        document.getElementById('inpposition_d').value = '';
-        document.getElementById('inpspecialization').value = '';
+        document.getElementById('inpmodel').value = '';
+        document.getElementById('inpregistrationNumber').value = '';
       }
       
       window.addEventListener('click', function(event) {

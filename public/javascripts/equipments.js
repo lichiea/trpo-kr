@@ -1,78 +1,49 @@
 $(document).ready(function(){
 
-    $('#create_eqipment').click(function(e){
-
-        $('#create_eqipment_popup').show()
-
+    $('#create_equipment').click(function(e){
+        $('#create_equipment_popup').show()
     })
 
-    $('#create_eqipment_popup_close').click(function(e){
-
-        $('#create_eqipment_popup').hide()
-
+    $('#create_equipment_popup_close').click(function(e){
+        $('#create_equipment_popup').hide()
     })
 
-    $('#cancel_create_eqipment').click(function(e){
-
-        $('#create_eqipment_popup').hide()
-
+    $('#cancel_create_equipment').click(function(e){
+        $('#create_equipment_popup').hide()
     })
 
-    $('#submit_create_eqipment').click(function(e){
-
+    $('#submit_create_equipment').click(function(e){
         e.preventDefault()
+
         let data = {
-            label:    $('#inpLabel').val(),
-            id_client: $('#inpClient').val(),
-            id_status: $('#inpStatus').val(),
-            amount: $('#inpAmount').val(),
+            label: $('#inplabel').val(),
+            description: $('#inpdescription').val()
+        };
+
+        // Валидация
+        if (!data.label) {
+            alert('Пожалуйста, заполните наименование оборудования');
+            return;
         }
 
         $.ajax({
             type: 'POST',
-            data: data,
-            url: '/eqipments/create',
+            data: JSON.stringify(data),
+            contentType: 'application/json',
+            url: '/equipments/create',
             dataType: 'JSON'
         }).done(function( response ) {
-
             if (response.msg === '') {
-                alert('Инвентарь создан')
+                alert('Запись об оборудовании создана')
                 window.location.reload()
             }
             else {
                 alert(response.msg)
             }
-        });
-
-    })
-
-
-    $('#update_eqipment').click(function(e){
-        e.preventDefault();
-   
-        const pathSegments = window.location.pathname.split('/');
-        const eqipmentId = pathSegments[pathSegments.length - 1];   
-
-        let data = {
-            label: $('#editLabel').val(),
-            id_client: $('#editClient').val(),
-            id_status: $('#status-select').val(),
-            amount: $('#editAmount').val(),
-        };
-
-        $.ajax({
-            type: 'POST',
-            data: data,
-            url: `/eqipments/update/${eqipmentId}`,
-            dataType: 'JSON'
-        }).done(function(response) {
-            if (response.msg === '') {
-                alert('Инвентарь обновлен');
-                window.location.href = '/eqipments';
-            } else {
-                alert(response.msg);
-            }
+        }).fail(function(xhr, status, error) {
+            console.error('Error:', error);
+            alert('Ошибка при создании оборудования: ' + error);
         });
     });
-});
 
+});

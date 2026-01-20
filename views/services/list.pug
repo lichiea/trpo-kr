@@ -13,74 +13,61 @@ block content
   .page-container
     h1.page-title= title
     
-    if can_view_employees
+    if can_view_services
       .actions-panel
-        button.primary-button(id='create_employee') Создать сотрудника
+        button.primary-button(id='create_service') Создать услугу
     
     .content-card
-      if employees && employees.length > 0
+      if services && services.length > 0
         .table-container
           table.data-table
             thead
               tr 
                 th ID
-                th ФИО
-                th Телефон
-                th Email
-                th Должность
-                th Специализация
-                th ID пользователя
+                th Название
+                th Описание
+                th ID оборудования
             tbody
-              each employee in employees
+              each service in services
                 tr
                   td
-                    a(href='/employees/' + employee.id)= employee.id
+                    a(href='/services/' + service.id)= service.id
                   td
-                    a(href='/employees/' + employee.id)= employee.fio
-                  td= employee.phone
-                  td= employee.email
-                  td= employee.position_d
-                  td= employee.specialization
-                  td= employee.id_pol
+                    a(href='/services/' + service.id)= service.label
+                  td= service.description
+                  td= service.id_equip
       else
         .empty-state
-          p Нет сотрудников в базе данных
+          p Нет услуг в базе данных
 
-    // Модальное окно для создания сотрудника
-    div#create_employee_popup.modal-window(style="display:none")
+    // Модальное окно для создания услуги
+    div#create_service_popup.modal-window(style="display:none")
       .modal-content
         .modal-header
-          h3 Создать сотрудника
-          button.modal-close#create_employee_popup_close ×
+          h3 Создать услугу
+          button.modal-close#create_service_popup_close ×
         .modal-body
           form.modal-form
             .form-group
-              label(for="inpfio") ФИО
-              input#inpfio(type="text" placeholder="Иванов И. И.")
+              label(for="inplabel") Название услуги *
+              input#inplabel(type="text" placeholder="Название услуги" required)
             .form-group
-              label(for="inpphone") Телефон
-              input#inpphone(type="text" placeholder="89371234567")
+              label(for="inpdescription") Описание
+              textarea#inpdescription(placeholder="Описание услуги" rows="4")
             .form-group
-              label(for="inpemail") Email
-              input#inpemail(type="email" placeholder="employee@example.com")
-            .form-group
-              label(for="inpposition_d") Должность
-              input#inpposition_d(type="text" placeholder="Старший клинер")
-            .form-group
-              label(for="inpspecialization") Специализация
-              input#inpspecialization(type="text" placeholder="Клинер офисных помещений")
+              label(for="inpid_equip") ID оборудования
+              input#inpid_equip(type="number" placeholder="ID оборудования")
         .modal-footer
-          button.secondary-button#cancel_create_employee Отменить
-          button.primary-button#submit_create_employee Создать
+          button.secondary-button#cancel_create_service Отменить
+          button.primary-button#submit_create_service Создать
 
   script.
-    // JavaScript код остаётся без изменений
     document.addEventListener('DOMContentLoaded', function() {
-      const createBtn = document.getElementById('create_employee');
-      const popup = document.getElementById('create_employee_popup');
-      const closeBtn = document.getElementById('create_employee_popup_close');
-      const cancelBtn = document.getElementById('cancel_create_employee');
-      const submitBtn = document.getElementById('submit_create_employee');
+      const createBtn = document.getElementById('create_service');
+      const popup = document.getElementById('create_service_popup');
+      const closeBtn = document.getElementById('create_service_popup_close');
+      const cancelBtn = document.getElementById('cancel_create_service');
+      const submitBtn = document.getElementById('submit_create_service');
       
       if (createBtn) {
         createBtn.addEventListener('click', function() {
@@ -103,11 +90,9 @@ block content
       }
       
       function clearForm() {
-        document.getElementById('inpfio').value = '';
-        document.getElementById('inpphone').value = '';
-        document.getElementById('inpemail').value = '';
-        document.getElementById('inpposition_d').value = '';
-        document.getElementById('inpspecialization').value = '';
+        document.getElementById('inplabel').value = '';
+        document.getElementById('inpdescription').value = '';
+        document.getElementById('inpid_equip').value = '';
       }
       
       window.addEventListener('click', function(event) {
@@ -116,6 +101,57 @@ block content
           clearForm();
         }
       });
+
+      if (submitBtn) {
+        submitBtn.addEventListener('click', async function(e) {
+          e.preventDefault();
+
+          let data = {
+            label: document.getElementById('inplabel').value,
+            description: document.getElementById('inpdescription').value,
+            id_equip: document.getElementById('inpid_equip').value
+          };
+
+          // Валидация
+          if (!data.label) {
+            alert('Пожалуйста, заполните название услуги');
+            return;
+          }
+
+          // Преобразуем id_equip в число, если оно есть
+          if (data.id_equip && data.id_equip !== '') {
+            data.id_equip = parseInt(data.id_equip);
+            if (isNaN(data.id_equip)) {
+              alert('ID оборудования должно быть числом');
+              return;
+            }
+          } else {
+            data.id_equip = null;
+          }
+
+          try {
+            const response = await fetch('/services/create', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+
+            if (result.msg === '') {
+              alert('Услуга создана');
+              window.location.reload();
+            } else {
+              alert(result.msg);
+            }
+          } catch (error) {
+            console.error('Error:', error);
+            alert('Ошибка при создании услуги: ' + error);
+          }
+        });
+      }
     });
 
   style.
