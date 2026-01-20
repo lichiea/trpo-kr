@@ -12,9 +12,14 @@ router.get('/', async function(req, res, next) {
             equipments.description AS description
         FROM
             equipments
+        ORDER BY id ASC  -- Сортировка по возрастанию ID
     `)
     console.log(equipments)
-    res.render('equipments/list', { title: 'Оборудование', equipments: equipments, can_view_equipments: can_view_equipments })
+    res.render('equipments/list', { 
+        title: 'Инвентарь', 
+        equipments: equipments, 
+        can_view_equipments: can_view_equipments 
+    })
 });
 
 router.post('/create', async function(req, res, next) {
@@ -33,7 +38,7 @@ router.post('/create', async function(req, res, next) {
         res.send({msg: ''});
     } catch (error) {
         console.error('Create error:', error);
-        res.send({msg: 'Ошибка при создании оборудования: ' + error.message});
+        res.send({msg: 'Ошибка при создании инвентаря: ' + error.message});
     }
 });
 
@@ -46,7 +51,7 @@ router.get('/:id', async function(req, res) {
     var can_view_equipments = user && user.id_role ? true : false
 
     try {
-        // Получаем данные оборудования
+        // Получаем данные инвентаря
         let equipment = await req.db.one(`
             SELECT
                 equipments.id AS id,
@@ -58,9 +63,23 @@ router.get('/:id', async function(req, res) {
                 equipments.id = ${id}
         `)
 
+        // Получаем услуги, которые используют это Инвентарь
+        let services = await req.db.any(`
+            SELECT
+                services.id AS id,
+                services.label AS label,
+                services.description AS description
+            FROM
+                services
+            WHERE
+                services.id_equip = ${id}
+            ORDER BY services.id ASC  -- Сортировка услуг по возрастанию ID
+        `)
+
         res.render('equipments/view', { 
-            title: 'Оборудование: ' + equipment.label, 
+            title: 'Инвентарь: ' + equipment.label, 
             equipment: equipment, 
+            services: services,
             can_view_equipments: can_view_equipments 
         })
 
@@ -70,7 +89,7 @@ router.get('/:id', async function(req, res) {
     }
 });
 
-// Роут для обновления оборудования
+// Роут для обновления инвентаря
 router.post('/update/:id', async function(req, res) {
     let id = parseInt(req.params.id);
     let equipment = req.body;
@@ -100,32 +119,42 @@ router.post('/update/:id', async function(req, res) {
         res.send({msg: ''});
     } catch (error) {
         console.error('Update error:', error);
-        res.send({msg: 'Ошибка при обновлении оборудования: ' + error.message});
+        res.send({msg: 'Ошибка при обновлении инвентаря: ' + error.message});
     }
 });
 
-// Роут для удаления оборудования
+// Роут для удаления инвентаря
 router.delete('/delete/:id', async function(req, res) {
     let id = parseInt(req.params.id);
     
     console.log('Delete request for equipment ID:', id);
     
     if (isNaN(id)) {
-        return res.send({msg: 'Неверный ID оборудования'});
+        return res.send({msg: 'Неверный ID инвентаря'});
     }
     
     try {
-        // Проверяем, существует ли оборудование
+        // Проверяем, существует ли Инвентарь
         const equipmentExists = await req.db.oneOrNone(
             'SELECT id FROM equipments WHERE id = $1',
             [id]
         );
         
         if (!equipmentExists) {
-            return res.send({msg: 'Оборудование не найдено'});
+            return res.send({msg: 'Инвентарь не найдено'});
         }
         
-        // Удаляем оборудование
+        // Проверяем, используется ли Инвентарь в услугах
+        const usedInServices = await req.db.oneOrNone(
+            'SELECT id FROM services WHERE id_equip = $1',
+            [id]
+        );
+        
+        if (usedInServices) {
+            return res.send({msg: 'Невозможно удалить Инвентарь, так как оно используется в услугах. Сначала удалите или измените связанные услуги.'});
+        }
+        
+        // Удаляем Инвентарь
         await req.db.none(
             'DELETE FROM equipments WHERE id = $1',
             [id]
@@ -135,7 +164,7 @@ router.delete('/delete/:id', async function(req, res) {
         res.send({msg: ''});
     } catch (error) {
         console.error('Delete error:', error);
-        res.send({msg: 'Ошибка при удалении оборудования: ' + error.message});
+        res.send({msg: 'Ошибка при удалении инвентаря: ' + error.message});
     }
 });
 

@@ -75,7 +75,8 @@ block content
       
       const pathSegments = window.location.pathname.split('/');
       const transportId = pathSegments[pathSegments.length - 1];
-      
+      console.log('Transport ID:', transportId); // Для отладки
+
       function closeDeleteModal() {
         if (deleteModal) {
           deleteModal.style.display = 'none';
@@ -108,7 +109,8 @@ block content
             });
             
             const data = await response.json();
-            
+            console.log('Update URL:', `/transports/update/${transportId}`);
+            console.log('Form data:', formData);
             if (data.msg === '') {
               alert('Данные транспортного средства успешно обновлены');
             } else {

@@ -15,6 +15,8 @@ block content
     .content-card
       .profile-header
         h1.page-title= title
+        .user-type-badge(class=user_type === 'Сотрудник' ? 'badge-employee' : user_type === 'Клиент' ? 'badge-client' : 'badge-user')
+          = user_type
   
       .profile-content
         form#userForm.profile-form
@@ -23,9 +25,9 @@ block content
             
             .form-grid
               .form-group
-                label(for="editlogin") Логин:
+                label(for="editlogin") Логин: *
                 if can_view_users
-                  input#editlogin(type='text', value=userData.login, name="login")
+                  input#editlogin(type='text', value=userData.login, name="login", required)
                 else
                   .form-value= userData.login
               
@@ -38,9 +40,12 @@ block content
                   .form-value ******
               
               .form-group
-                label(for="editid_role") Роль:
+                label(for="editid_role") Роль: *
                 if can_view_users
-                  input#editid_role(type='text', value=userData.id_role, name="id_role")
+                  select#editid_role(name="id_role", required)
+                    option(value="") Выберите роль
+                    each role in roles
+                      option(value=role, selected=userData.id_role === role)= role
                 else
                   .form-value= userData.id_role
               
@@ -52,23 +57,57 @@ block content
                   else
                     .no-permission-message У вас нет прав для редактирования профиля        
 
+        // Секция связанных данных
+        .info-section
+          h2.section-title Связанные данные
+        
         if employeeData
-          .info-section
-            h2.section-title Связанный сотрудник
-            
+          .info-card
+            h3.section-subtitle 👨‍💼 Связанный сотрудник
             .info-grid
               .info-item
                 .info-label ID сотрудника:
-                .info-value= employeeData.employee_id
+                .info-value
+                  a(href='/employees/' + employeeData.employee_id)= employeeData.employee_id
               .info-item
                 .info-label ФИО:
-                .info-value= employeeData.employee_fio || 'Не указано'
+                .info-value= employeeData.employee_fio
               .info-item
                 .info-label Должность:
-                .info-value= employeeData.employee_position || 'Не указана'
-        else
-          .info-section
-            .empty-message Нет связанного сотрудника
+                .info-value= employeeData.employee_position
+              .info-item
+                .info-label Телефон:
+                .info-value= employeeData.employee_phone
+              .info-item
+                .info-label Email:
+                .info-value= employeeData.employee_email
+        
+        if clientData
+          .info-card
+            h3.section-subtitle 👤 Связанный клиент
+            .info-grid
+              .info-item
+                .info-label ID клиента:
+                .info-value
+                  a(href='/clients/' + clientData.client_id)= clientData.client_id
+              .info-item
+                .info-label ФИО:
+                .info-value= clientData.client_fio
+              .info-item
+                .info-label Телефон:
+                .info-value= clientData.client_phone
+              .info-item
+                .info-label Email:
+                .info-value= clientData.client_email
+              .info-item
+                .info-label Тип:
+                .info-value= clientData.client_type
+        
+        if !employeeData && !clientData
+          .info-card
+            .info-message
+              .info-icon ℹ️
+              .info-text Нет связанных записей (сотрудника или клиента)
 
     #deleteConfirmModal.modal-window(style="display: none;")
       .modal-content
@@ -82,18 +121,70 @@ block content
               h4 Вы уверены, что хотите удалить пользователя?
               p
                 strong= userData.login
+                |  (ID: #{userData.id})
               p Это действие нельзя отменить. Все данные пользователя будут удалены безвозвратно.
         .modal-footer
           button.secondary-button#cancelDelete Отмена
           button.danger-button#confirmDelete Удалить
 
-  // Подключаем jQuery и наш скрипт
   script(src="https://code.jquery.com/jquery-3.6.0.min.js")
-  script(src="/javascripts/users.js")
   script.
-    // Дополнительный JavaScript для работы с модальным окном удаления
     $(document).ready(function(){
-        // Открытие модального окна удаления
+        // Получаем ID пользователя из URL
+        const pathSegments = window.location.pathname.split('/');
+        const userId = pathSegments[pathSegments.length - 1];
+        
+        // ============ ОБРАБОТКА СОХРАНЕНИЯ ============
+        $('#editSaveButton').click(function(e){
+            e.preventDefault();
+            
+            let data = {
+                login: $('#editlogin').val().trim(),
+                pass: $('#editpass').val().trim(),
+                id_role: $('#editid_role').val()
+            };
+            
+            // Валидация
+            if (!data.login || !data.id_role) {
+                alert('Пожалуйста, заполните обязательные поля (логин и роль)');
+                return;
+            }
+            
+            // Если пароль пустой, не отправляем его
+            if (data.pass === '') {
+                delete data.pass;
+            }
+            
+            // Показываем загрузку
+            const button = $(this);
+            button.prop('disabled', true);
+            button.html('<span class="loading-spinner"></span> Сохранение...');
+            
+            $.ajax({
+                type: 'POST',
+                data: JSON.stringify(data),
+                contentType: 'application/json',
+                url: '/users/update/' + userId,
+                dataType: 'JSON'
+            }).done(function( response ) {
+                if (response.msg === '') {
+                    alert('Данные пользователя успешно обновлены');
+                    window.location.reload();
+                }
+                else {
+                    alert(response.msg);
+                }
+            }).fail(function(xhr, status, error) {
+                console.error('Error:', error);
+                alert('Ошибка при обновлении пользователя: ' + error);
+            }).always(function() {
+                button.prop('disabled', false);
+                button.text('Сохранить изменения');
+            });
+        });
+        
+        // ============ ОБРАБОТКА УДАЛЕНИЯ ============
+        // Открытие модального окна
         $('#deleteButton').click(function(){
             $('#deleteConfirmModal').show();
             $('body').css('overflow', 'hidden');
@@ -113,6 +204,38 @@ block content
             }
         });
         
+        // Подтверждение удаления
+        $('#confirmDelete').click(function(e){
+            e.preventDefault();
+            
+            const button = $(this);
+            button.prop('disabled', true);
+            button.html('<span class="loading-spinner"></span> Удаление...');
+            
+            $.ajax({
+                type: 'DELETE',
+                contentType: 'application/json',
+                url: '/users/delete/' + userId,
+                dataType: 'JSON'
+            }).done(function( response ) {
+                if (response.msg === '') {
+                    alert('Пользователь успешно удалён');
+                    window.location.href = '/users';
+                }
+                else {
+                    alert(response.msg);
+                    $('#deleteConfirmModal').hide();
+                    $('body').css('overflow', 'auto');
+                }
+            }).fail(function(xhr, status, error) {
+                console.error('Error:', error);
+                alert('Ошибка при удалении пользователя: ' + error);
+            }).always(function() {
+                button.prop('disabled', false);
+                button.text('Удалить');
+            });
+        });
+        
         // Закрытие по ESC
         $(document).keydown(function(event){
             if (event.key === 'Escape' && $('#deleteConfirmModal').is(':visible')) {
@@ -120,6 +243,54 @@ block content
                 $('body').css('overflow', 'auto');
             }
         });
+        
+        // Стиль для индикатора загрузки
+        const style = document.createElement('style');
+        style.textContent = `
+            .loading-spinner {
+                display: inline-block;
+                width: 16px;
+                height: 16px;
+                border: 2px solid rgba(255,255,255,.3);
+                border-radius: 50%;
+                border-top-color: #fff;
+                animation: spin 1s ease-in-out infinite;
+                margin-right: 8px;
+                vertical-align: middle;
+            }
+            
+            @keyframes spin {
+                to { transform: rotate(360deg); }
+            }
+            
+            .info-card {
+                background: #f8f9fa;
+                border-radius: 8px;
+                padding: 20px;
+                margin-bottom: 20px;
+                border-left: 4px solid #007bff;
+            }
+            
+            .section-subtitle {
+                color: #333;
+                margin-bottom: 15px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            
+            .info-message {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                color: #666;
+            }
+            
+            .info-icon {
+                font-size: 20px;
+            }
+        `;
+        document.head.appendChild(style);
     });
 
   style.
@@ -230,6 +401,28 @@ block content
       cursor: not-allowed;
     }
     
+    .form-group select{
+      padding: 14px 16px;
+      border: 2px solid #EAEAEA;
+      border-radius: 8px;
+      font-size: 16px;
+      max-width: 620px;
+      background: #FFFFFF;
+      transition: all 0.3s ease;
+    }
+    
+    .form-group select:focus {
+      outline: none;
+      border-color: #6C5FBC;
+      box-shadow: 0 0 0 3px rgba(108, 95, 188, 0.1);
+    }
+    
+    .form-group select:disabled {
+      background-color: #F8F8F8;
+      color: #666;
+      cursor: not-allowed;
+    }  
+
     .form-value {
       padding: 14px 0;
       font-size: 16px;

@@ -55,7 +55,7 @@ router.get('/:id', async function(req, res) {
 
     try {
         // Получаем данные прейскуранта
-        let pricelist = await req.db.one(`
+        let pricelist = await req.db.oneOrNone(`
             SELECT
                 pricelists.id AS id,
                 pricelists.label AS label,
@@ -68,31 +68,104 @@ router.get('/:id', async function(req, res) {
                 pricelists.id = ${id}
         `);
 
+        // Если прейскурант не найден
+        if (!pricelist) {
+            return res.status(404).send('Прейскурант не найден');
+        }
+
         // Получаем позиции прейскуранта
         let pricelistItems = await req.db.any(`
             SELECT
                 pricelists_items.id AS id,
                 pricelists_items.id_serv AS service_id,
-                services.name AS service_name,
+                services.label AS service_label,  -- Исправлено: было services.name, стало services.label
+                services.description AS service_description,
+                services.id_equip AS equipment_id,
                 pricelists_items.price AS price
             FROM
                 pricelists_items
             LEFT JOIN services ON pricelists_items.id_serv = services.id
             WHERE
                 pricelists_items.id_pricelist = ${id}
-            ORDER BY services.name
+            ORDER BY services.label
+        `);
+
+        // Получаем список всех услуг для добавления новых позиций
+        let allServices = await req.db.any(`
+            SELECT
+                services.id AS id,
+                services.label AS label,
+                services.description AS description
+            FROM
+                services
+            ORDER BY services.label
         `);
 
         res.render('pricelists/view', { 
             title: 'Прейскурант: ' + pricelist.label, 
             pricelist: pricelist, 
             pricelistItems: pricelistItems,
+            allServices: allServices,
             can_view_pricelists: can_view_pricelists 
         });
 
     } catch (error) {
         console.error('Error fetching pricelist details:', error);
         res.status(500).send('Ошибка сервера: ' + error.message);
+    }
+});
+
+// Роут для добавления позиции в прейскурант
+router.post('/:id/add-item', async function(req, res) {
+    let pricelistId = parseInt(req.params.id);
+    let itemData = req.body;
+    
+    if (isNaN(pricelistId) || !itemData.service_id || !itemData.price) {
+        return res.send({msg: 'Неверные данные: требуется ID услуги и цена'});
+    }
+
+    try {
+        // Проверяем, существует ли уже такая услуга в прейскуранте
+        const existingItem = await req.db.oneOrNone(`
+            SELECT id FROM pricelists_items 
+            WHERE id_pricelist = $1 AND id_serv = $2
+        `, [pricelistId, itemData.service_id]);
+        
+        if (existingItem) {
+            return res.send({msg: 'Эта услуга уже добавлена в прейскурант'});
+        }
+
+        // Добавляем позицию
+        await req.db.none(
+            'INSERT INTO pricelists_items(id_pricelist, id_serv, price) VALUES($1, $2, $3)',
+            [pricelistId, itemData.service_id, itemData.price]
+        );
+        
+        res.send({msg: ''});
+    } catch (error) {
+        console.error('Add item error:', error);
+        res.send({msg: 'Ошибка при добавлении позиции: ' + error.message});
+    }
+});
+
+// Роут для удаления позиции из прейскуранта
+router.delete('/item/:id', async function(req, res) {
+    let itemId = parseInt(req.params.id);
+    
+    if (isNaN(itemId)) {
+        return res.send({msg: 'Неверный ID позиции'});
+    }
+    
+    try {
+        await req.db.none(
+            'DELETE FROM pricelists_items WHERE id = $1',
+            [itemId]
+        );
+        
+        res.send({msg: ''});
+    } catch (error) {
+        console.error('Delete item error:', error);
+        res.send({msg: 'Ошибка при удалении позиции: ' + error.message});
     }
 });
 

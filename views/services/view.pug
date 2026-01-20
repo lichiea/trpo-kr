@@ -12,7 +12,7 @@ block content
 
   .page-container
     .navigation-links
-      a.back-link(href='/services') ← Назад к списку услуг
+      a.back-link(href='/services') ← Назад к каталогу услуг
     
     .content-card
       .profile-header
@@ -39,11 +39,14 @@ block content
                   .form-value= service.description
               
               .form-group
-                label(for="editid_equip") ID оборудования:
+                label(for="editid_equip") Оборудование:
                 if can_view_services
-                  input#editid_equip(type='number', value=service.id_equip, name="id_equip")
+                  select#editid_equip(name="id_equip")
+                    option(value="") Не выбрано
+                    each equipment in equipments
+                      option(value=equipment.id, selected=(equipment.id == service.id_equip))= equipment.label
                 else
-                  .form-value= service.id_equip
+                  .form-value= equipmentInfo ? equipmentInfo.equip_label : 'Не назначено'
 
               .form-actions
                 .buttons-row
@@ -51,8 +54,9 @@ block content
                     button.primary-button#editSaveButton(type="button") Сохранить изменения
                     button.danger-button#deleteButton(type="button") Удалить услугу
                   else
-                    .no-permission-message У вас нет прав для редактирования услуги        
+                    .no-permission-message У вас нет прав для редактирования услуги
 
+        // Блок с информацией об оборудовании
         if equipmentInfo
           .info-section
             h2.section-title Информация об оборудовании
@@ -63,10 +67,10 @@ block content
                 .info-value= equipmentInfo.equip_id
               .info-item
                 .info-label Название:
-                .info-value= equipmentInfo.equip_name || 'Не указано'
+                .info-value= equipmentInfo.equip_label || 'Не указано'
               .info-item
-                .info-label Модель:
-                .info-value= equipmentInfo.equip_model || 'Не указана'
+                .info-label Описание:
+                .info-value= equipmentInfo.equip_description || 'Не указано'
         else if service.id_equip
           .info-section
             .info-card
@@ -75,6 +79,62 @@ block content
           .info-section
             .info-card
               .empty-message Для этой услуги не назначено оборудование
+
+        // Блок с текущей ценой
+        .info-section
+          h2.section-title 
+            i.fas.fa-tag
+            span Текущая цена
+          
+          if currentPrice && activePricelist
+            .price-card.current-price
+              .price-badge Текущая
+              .price-content
+                .price-amount= currentPrice.price + ' ₽'
+                .price-info
+                  .price-label По прейскуранту: 
+                    strong= activePricelist.label
+      
+          else
+            .info-card
+              .empty-message
+                i.fas.fa-exclamation-circle
+                p Для этой услуги не установлена цена в активном прейскуранте
+
+        // Блок с историей цен
+        if priceHistory && priceHistory.length > 0
+          .info-section
+            h2.section-title
+              i.fas.fa-history
+              span История цен
+            
+            .pricelist-table
+              table.data-table
+                thead
+                  tr
+                    th Прейскурант
+                    th Цена (₽)
+                    th Статус
+                tbody
+                  each priceItem in priceHistory
+                    tr(class=priceItem.isactive ? 'active-price' : '')
+                      td= priceItem.pricelist_label
+                      td
+                        if priceItem.price
+                          strong= priceItem.price
+                        else
+                          span.not-set Не установлена
+                      td
+                        if priceItem.isactive
+                          span.status-badge.active Активный
+                        else
+                          span.status-badge.inactive Не активен
+        else
+          .info-section
+            .info-card
+              .empty-message
+                i.fas.fa-history
+                p История цен для этой услуги отсутствует
 
     #deleteConfirmModal.modal-window(style="display: none;")
       .modal-content
@@ -89,6 +149,10 @@ block content
               p
                 strong= service.label
               p Это действие нельзя отменить. Все данные услуги будут удалены безвозвратно.
+              if currentPrice
+                p 
+                  strong Внимание: 
+                  | Эта услуга имеет установленную цену в прейскурантах
         .modal-footer
           button.secondary-button#cancelDelete Отмена
           button.danger-button#confirmDelete Удалить
@@ -128,7 +192,7 @@ block content
           if (formData.id_equip && formData.id_equip !== '') {
             formData.id_equip = parseInt(formData.id_equip);
             if (isNaN(formData.id_equip)) {
-              alert('ID оборудования должно быть числом');
+              alert('Ошибка выбора оборудования');
               return;
             }
           } else {
@@ -338,6 +402,50 @@ block content
       cursor: not-allowed;
     }
     
+    .form-group textarea {
+      padding: 14px 16px;
+      border: 2px solid #EAEAEA;
+      border-radius: 8px;
+      font-size: 16px;
+      max-width: 520px;
+      background: #FFFFFF;
+      transition: all 0.3s ease;
+    }
+    
+    .form-group textarea:focus {
+      outline: none;
+      border-color: #6C5FBC;
+      box-shadow: 0 0 0 3px rgba(108, 95, 188, 0.1);
+    }
+    
+    .form-group textarea:disabled {
+      background-color: #F8F8F8;
+      color: #666;
+      cursor: not-allowed;
+    }  
+
+    .form-group select{
+      padding: 14px 16px;
+      border: 2px solid #EAEAEA;
+      border-radius: 8px;
+      font-size: 16px;
+      max-width: 520px;
+      background: #FFFFFF;
+      transition: all 0.3s ease;
+    }
+    
+    .form-group select:focus {
+      outline: none;
+      border-color: #6C5FBC;
+      box-shadow: 0 0 0 3px rgba(108, 95, 188, 0.1);
+    }
+    
+    .form-group select:disabled {
+      background-color: #F8F8F8;
+      color: #666;
+      cursor: not-allowed;
+    }  
+
     .form-value {
       padding: 14px 0;
       font-size: 16px;
@@ -737,5 +845,157 @@ block content
         flex-direction: column;
         align-items: flex-start;
         gap: 5px;
+      }
+    }
+
+        .price-card {
+      background: white;
+      border-radius: 12px;
+      border: 2px solid #e0e0e0;
+      padding: 25px;
+      position: relative;
+      margin-bottom: 20px;
+    }
+    
+    .current-price {
+      border-color: #4CAF50;
+      background: linear-gradient(to right, #f8fff8, #ffffff);
+    }
+    
+    .price-badge {
+      position: absolute;
+      top: -12px;
+      left: 20px;
+      background: #4CAF50;
+      color: white;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    
+    .price-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+    
+    .price-amount {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: #2E7D32;
+    }
+    
+    .price-info {
+      flex-grow: 1;
+    }
+    
+    .price-label {
+      font-size: 1.1rem;
+      margin-bottom: 8px;
+      color: #333;
+    }
+    
+    .price-period {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #666;
+      font-size: 0.95rem;
+    }
+    
+    .price-period i {
+      color: #007bff;
+    }
+    
+    .pricelist-table {
+      margin-top: 15px;
+    }
+    
+    .pricelist-table table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    
+    .pricelist-table th {
+      background: #f8f9fa;
+      font-weight: 600;
+      text-align: left;
+      padding: 12px 15px;
+      border-bottom: 2px solid #dee2e6;
+    }
+    
+    .pricelist-table td {
+      padding: 12px 15px;
+      border-bottom: 1px solid #eee;
+      vertical-align: middle;
+    }
+    
+    .pricelist-table tr.active-price {
+      background-color: #f0f9ff;
+    }
+    
+    .pricelist-table tr:hover {
+      background-color: #f8f9fa;
+    }
+    
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    
+    .status-badge.active {
+      background: #d4edda;
+      color: #155724;
+    }
+    
+    .status-badge.inactive {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    
+    .not-set {
+      color: #999;
+      font-style: italic;
+    }
+    
+    /* Стили для иконок в заголовках */
+    .section-title i {
+      margin-right: 10px;
+      color: #007bff;
+    }
+    
+    /* Адаптивность */
+    @media (max-width: 768px) {
+      .price-content {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      
+      .price-amount {
+        font-size: 2rem;
+      }
+      
+      .pricelist-table {
+        overflow-x: auto;
+      }
+      
+      .pricelist-table table {
+        min-width: 600px;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .price-card {
+        padding: 20px 15px;
+      }
+      
+      .price-amount {
+        font-size: 1.8rem;
       }
     }

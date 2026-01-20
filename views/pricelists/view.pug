@@ -34,27 +34,74 @@ block content
               .form-group
                 label(for="editvalidFrom") Дата начала действия:
                 if can_view_pricelists
-                  input#editvalidFrom(type='date', value=new Date(pricelist.validFrom).toISOString().split('T')[0], name="validFrom")
+                  - 
+                    var validFromValue = '';
+                    if (pricelist.validfrom) {
+                      try {
+                        var validFromDate = new Date(pricelist.validfrom);
+                        if (!isNaN(validFromDate.getTime())) {
+                          validFromValue = validFromDate.toISOString().split('T')[0];
+                        }
+                      } catch(e) {
+                        validFromValue = '';
+                      }
+                    }
+                  input#editvalidFrom(type='date', value=validFromValue, name="validFrom")
                 else
-                  .form-value= pricelist.validFrom ? new Date(pricelist.validFrom).toLocaleDateString('ru-RU') : '-'
+                  - 
+                    var validFromDisplay = '-';
+                    if (pricelist.validfrom) {
+                      try {
+                        var validFromDate = new Date(pricelist.validfrom);
+                        if (!isNaN(validFromDate.getTime())) {
+                          validFromDisplay = validFromDate.toLocaleDateString('ru-RU');
+                        }
+                      } catch(e) {
+                        validFromDisplay = 'Неверный формат даты';
+                      }
+                    }
+                  .form-value= validFromDisplay
               
               .form-group
                 label(for="editvalidTo") Дата окончания действия:
                 if can_view_pricelists
-                  - const validToValue = pricelist.validTo ? new Date(pricelist.validTo).toISOString().split('T')[0] : '';
+                  - 
+                    var validToValue = '';
+                    if (pricelist.validto) {
+                      try {
+                        var validToDate = new Date(pricelist.validto);
+                        if (!isNaN(validToDate.getTime())) {
+                          validToValue = validToDate.toISOString().split('T')[0];
+                        }
+                      } catch(e) {
+                        validToValue = '';
+                      }
+                    }
                   input#editvalidTo(type='date', value=validToValue, name="validTo")
                 else
-                  .form-value= pricelist.validTo ? new Date(pricelist.validTo).toLocaleDateString('ru-RU') : '-'
+                  - 
+                    var validToDisplay = '-';
+                    if (pricelist.validto) {
+                      try {
+                        var validToDate = new Date(pricelist.validto);
+                        if (!isNaN(validToDate.getTime())) {
+                          validToDisplay = validToDate.toLocaleDateString('ru-RU');
+                        }
+                      } catch(e) {
+                        validToDisplay = 'Неверный формат даты';
+                      }
+                    }
+                  .form-value= validToDisplay
               
               .form-group
                 label(for="editisActive") Статус:
                 if can_view_pricelists
                   select#editisActive(name="isActive")
-                    option(value="true", selected=pricelist.isActive) Активен
-                    option(value="false", selected=!pricelist.isActive) Неактивен
+                    option(value="true", selected=pricelist.isactive) Активен
+                    option(value="false", selected=!pricelist.isactive) Неактивен
                 else
                   .form-value
-                    if pricelist.isActive
+                    if pricelist.isactive
                       span.status-badge.active Активен
                     else
                       span.status-badge.inactive Неактивен
@@ -67,23 +114,52 @@ block content
                   else
                     .no-permission-message У вас нет прав для редактирования прейскуранта
 
+        // Секция для добавления новой позиции
+        if can_view_pricelists && allServices
+          .form-section
+            h2.section-title Добавить позицию в прейскурант
+            
+            form#addItemForm.add-item-form
+              .form-grid
+                .form-group
+                  label(for="selectService") Услуга:
+                  select#selectService(name="service_id")
+                    option(value="") Выберите услугу
+                    each service in allServices
+                      option(value=service.id)= service.label + (service.description ? ' (' + service.description + ')' : '')
+                
+                .form-group
+                  label(for="inputPrice") Цена (руб./м2):
+                  input#inputPrice(type="number", name="price", min="0", placeholder="0")
+                
+                .form-group
+                  label &nbsp;
+                  button.secondary-button(type="button" onclick="addPricelistItem()") Добавить позицию
+
         if pricelistItems && pricelistItems.length > 0
           .info-section
             h2.section-title Позиции прейскуранта
             
             .table-container
-              table.data-table
+              table.data-table.center-align
                 thead
                   tr 
-                    th ID
                     th Услуга
-                    th Цена
+                    th Описание услуги
+                    th Цена за м2
+                    th Действия
                 tbody
                   each item in pricelistItems
-                    tr
-                      td= item.id
-                      td= item.service_name || 'Услуга #' + item.service_id
+                    tr(id="item-row-" + item.id)
+                      td= item.service_label
+                      td= item.service_description || '-'
                       td= item.price + ' руб.'
+                      td
+                        if can_view_pricelists
+                          button.danger1-button(
+                            type="button"
+                            onclick=`deletePricelistItem(${item.id})`
+                          ) Удалить
         else
           .info-section
             .empty-message В этом прейскуранте нет позиций
@@ -106,6 +182,10 @@ block content
           button.danger-button#confirmDelete Удалить
 
   script.
+    // Получаем ID прейскуранта из URL
+    const pathSegments = window.location.pathname.split('/');
+    const pricelistId = pathSegments[pathSegments.length - 1];
+    
     document.addEventListener('DOMContentLoaded', function() {
       const saveButton = document.getElementById('editSaveButton');
       const deleteButton = document.getElementById('deleteButton');
@@ -113,9 +193,6 @@ block content
       const deleteModalClose = document.getElementById('deleteModalClose');
       const cancelDeleteButton = document.getElementById('cancelDelete');
       const confirmDeleteButton = document.getElementById('confirmDelete');
-      
-      const pathSegments = window.location.pathname.split('/');
-      const pricelistId = pathSegments[pathSegments.length - 1];
       
       // Закрытие модального окна удаления
       function closeDeleteModal() {
@@ -236,6 +313,83 @@ block content
       }
     });
 
+    // Функция для добавления позиции в прейскурант
+    async function addPricelistItem() {
+      const serviceId = document.getElementById('selectService').value;
+      const price = document.getElementById('inputPrice').value;
+      
+      if (!serviceId || !price) {
+        alert('Выберите услугу и укажите цену');
+        return;
+      }
+      
+      if (parseInt(price) < 0) {
+        alert('Цена не может быть отрицательной');
+        return;
+      }
+      
+      try {
+        const response = await fetch(`/pricelists/${pricelistId}/add-item`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            service_id: serviceId,
+            price: parseInt(price)
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (data.msg === '') {
+          alert('Позиция успешно добавлена');
+          window.location.reload();
+        } else {
+          alert('Ошибка: ' + data.msg);
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Ошибка при добавлении позиции');
+      }
+    }
+
+    // Функция для удаления позиции из прейскурант
+    async function deletePricelistItem(itemId) {
+      if (!confirm('Вы уверены, что хотите удалить эту позицию?')) {
+        return;
+      }
+      
+      try {
+        const response = await fetch(`/pricelists/item/${itemId}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (data.msg === '') {
+          alert('Позиция успешно удалена');
+          // Удаляем строку из таблицы без перезагрузки страницы
+          const row = document.getElementById('item-row-' + itemId);
+          if (row) row.remove();
+          
+          // Если строк не осталось, показываем сообщение
+          const tableBody = document.querySelector('.data-table tbody');
+          if (!tableBody || tableBody.children.length === 0) {
+            window.location.reload();
+          }
+        } else {
+          alert('Ошибка: ' + data.msg);
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Ошибка при удалении позиции');
+      }
+    }
+
   style.
     /* Общие стили */
     .page-container {
@@ -265,6 +419,7 @@ block content
       margin-bottom: 25px;
     }
     
+
     .back-link, .home-link {
       color: #6C5FBC;
       text-decoration: none;
@@ -300,6 +455,25 @@ block content
       margin-bottom: 40px;
     }
     
+    /* Стили для центрирования таблицы */
+    table.center-align th,
+    table.center-align td {
+      text-align: center;
+      vertical-align: middle;
+    }
+    
+    /* Чтобы кнопка "Удалить" тоже была по центру */
+    table.center-align td:last-child {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    /* Можно также центрировать заголовки */
+    table.center-align thead th {
+      text-align: center;
+    }
+
     /* Форма */
     .profile-form {
       margin-bottom: 40px;
@@ -343,6 +517,50 @@ block content
       color: #666;
       cursor: not-allowed;
     }
+
+    .form-group textarea {
+      padding: 14px 16px;
+      border: 2px solid #EAEAEA;
+      border-radius: 8px;
+      font-size: 16px;
+      max-width: 520px;
+      background: #FFFFFF;
+      transition: all 0.3s ease;
+    }
+    
+    .form-group textarea:focus {
+      outline: none;
+      border-color: #6C5FBC;
+      box-shadow: 0 0 0 3px rgba(108, 95, 188, 0.1);
+    }
+    
+    .form-group textarea:disabled {
+      background-color: #F8F8F8;
+      color: #666;
+      cursor: not-allowed;
+    }  
+
+    .form-group select{
+      padding: 14px 16px;
+      border: 2px solid #EAEAEA;
+      border-radius: 8px;
+      font-size: 16px;
+      max-width: 520px;
+      background: #FFFFFF;
+      transition: all 0.3s ease;
+    }
+    
+    .form-group select:focus {
+      outline: none;
+      border-color: #6C5FBC;
+      box-shadow: 0 0 0 3px rgba(108, 95, 188, 0.1);
+    }
+    
+    .form-group select:disabled {
+      background-color: #F8F8F8;
+      color: #666;
+      cursor: not-allowed;
+    }  
     
     .form-value {
       padding: 14px 0;
@@ -556,6 +774,20 @@ block content
       transform: translateY(-2px);
       box-shadow: 0 6px 15px rgba(220, 53, 69, 0.3);
     }
+
+    .danger1-button{
+      background-color: #dc3545;
+      color: white;
+      padding: 14px 32px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      min-width: 100px;
+    }
+
     
     /* Модальное окно удаления */
     #deleteConfirmModal {

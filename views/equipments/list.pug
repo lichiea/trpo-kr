@@ -15,7 +15,7 @@ block content
     
     if can_view_equipments
       .actions-panel
-        button.primary-button(id='create_equipment') Создать оборудование
+        button.primary-button(id='create_equipment') Создать инвентарь
     
     .content-card
       if equipments && equipments.length > 0
@@ -36,13 +36,13 @@ block content
                   td= equipment.description
       else
         .empty-state
-          p Нет оборудования в базе данных
+          p Нет инвентаря в базе данных
 
-    // Модальное окно для создания оборудования
+    // Модальное окно для создания
     div#create_equipment_popup.modal-window(style="display:none")
       .modal-content
         .modal-header
-          h3 Создать оборудование
+          h3 Создать инвентарь
           button.modal-close#create_equipment_popup_close ×
         .modal-body
           form.modal-form
@@ -54,7 +54,7 @@ block content
               textarea#inpdescription(placeholder="Технические характеристики и особенности")
         .modal-footer
           button.secondary-button#cancel_create_equipment Отменить
-          button.primary-button#submit_create_equipment Создать
+          button.primary-button#submit_create_equipment(type="button") Создать
 
   script(src="/javascripts/equipments.js")
 
@@ -106,7 +106,7 @@ block content
     
     .secondary-button {
       background-color: #6C5FBC;
-      color: #333;
+      color: white;
       padding: 12px 28px;
       border: none;
       border-radius: 8px;
@@ -120,6 +120,28 @@ block content
       background-color: #DDD;
       transform: translateY(-2px);
     }
+
+    .form-group textarea {
+      padding: 14px 16px;
+      border: 2px solid #EAEAEA;
+      border-radius: 8px;
+      font-size: 16px;
+      max-width: 520px;
+      background: #FFFFFF;
+      transition: all 0.3s ease;
+    }
+    
+    .form-group textarea:focus {
+      outline: none;
+      border-color: #6C5FBC;
+      box-shadow: 0 0 0 3px rgba(108, 95, 188, 0.1);
+    }
+    
+    .form-group textarea:disabled {
+      background-color: #F8F8F8;
+      color: #666;
+      cursor: not-allowed;
+    } 
     
     /* Таблица */
     .table-container {

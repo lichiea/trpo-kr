@@ -35,10 +35,10 @@ block content
                     a(href='/pricelists/' + pricelist.id)= pricelist.id
                   td
                     a(href='/pricelists/' + pricelist.id)= pricelist.label
-                  td= pricelist.validFrom ? new Date(pricelist.validFrom).toLocaleDateString('ru-RU') : '-'
-                  td= pricelist.validTo ? new Date(pricelist.validTo).toLocaleDateString('ru-RU') : '-'
+                  td= pricelist.validfrom ? new Date(pricelist.validfrom).toLocaleDateString('ru-RU') : '-'
+                  td= pricelist.validto ? new Date(pricelist.validto).toLocaleDateString('ru-RU') : '-'
                   td
-                    if pricelist.isActive
+                    if pricelist.isactive
                       span.status-badge.active Активен
                     else
                       span.status-badge.inactive Неактивен
@@ -180,6 +180,50 @@ block content
       background-color: #DDD;
       transform: translateY(-2px);
     }
+
+    .form-group textarea {
+      padding: 14px 16px;
+      border: 2px solid #EAEAEA;
+      border-radius: 8px;
+      font-size: 16px;
+      max-width: 520px;
+      background: #FFFFFF;
+      transition: all 0.3s ease;
+    }
+    
+    .form-group textarea:focus {
+      outline: none;
+      border-color: #6C5FBC;
+      box-shadow: 0 0 0 3px rgba(108, 95, 188, 0.1);
+    }
+    
+    .form-group textarea:disabled {
+      background-color: #F8F8F8;
+      color: #666;
+      cursor: not-allowed;
+    }  
+
+    .form-group select{
+      padding: 14px 16px;
+      border: 2px solid #EAEAEA;
+      border-radius: 8px;
+      font-size: 16px;
+      max-width: 520px;
+      background: #FFFFFF;
+      transition: all 0.3s ease;
+    }
+    
+    .form-group select:focus {
+      outline: none;
+      border-color: #6C5FBC;
+      box-shadow: 0 0 0 3px rgba(108, 95, 188, 0.1);
+    }
+    
+    .form-group select:disabled {
+      background-color: #F8F8F8;
+      color: #666;
+      cursor: not-allowed;
+    }  
     
     /* Таблица */
     .table-container {

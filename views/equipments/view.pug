@@ -12,7 +12,7 @@ block content
 
   .page-container
     .navigation-links
-      a.back-link(href='/equipments') ← Назад к списку оборудования
+      a.back-link(href='/equipments') ← Назад к списку инвентаря
     
     .content-card
       .profile-header
@@ -21,7 +21,7 @@ block content
       .profile-content
         form#equipmentForm.profile-form
           .form-section
-            h2.section-title Информация об оборудовании
+            h2.section-title Информация об инвентаре
             
             .form-grid
               .form-group
@@ -42,9 +42,29 @@ block content
                 .buttons-row
                   if can_view_equipments
                     button.primary-button#editSaveButton(type="button") Сохранить изменения
-                    button.danger-button#deleteButton(type="button") Удалить оборудование
+                    button.danger-button#deleteButton(type="button") Удалить инвентарь
                   else
-                    .no-permission-message У вас нет прав для редактирования оборудования        
+                    .no-permission-message У вас нет прав для редактирования инвентаря        
+
+        // Секция с услугами, использующими это инвентарь
+        if services && services.length > 0
+          .info-section
+            h2.section-title Услуги, использующие этот инвентарь
+            
+            .services-list
+              each service in services
+                .service-card
+                  .service-header
+                    h3.service-title= service.label
+                  .service-content
+                    if service.description
+                      .service-description= service.description
+                    .service-actions
+                      a.primary-button(href='/services/' + service.id) Подробнее
+        else
+          .info-section
+            .info-card
+              .empty-message Этот инвентарь не используется ни в одной услуге
 
     #deleteConfirmModal.modal-window(style="display: none;")
       .modal-content
@@ -55,17 +75,26 @@ block content
           .warning-message
             .warning-icon ⚠️
             .warning-text
-              h4 Вы уверены, что хотите удалить оборудование?
+              h4 Вы уверены, что хотите удалить инвентарь?
               p
                 strong= equipment.label
-              p Это действие нельзя отменить. Все данные оборудования будут удалены безвозвратно.
+              
+              if services && services.length > 0
+                .warning-details
+                  p ⚠️ Внимание! Этот инвентарь используется в следующих услугах:
+                  ul
+                    each service in services
+                      li= service.label
+                  p После удаления инвентаря эти услуги останутся без связанного инвентаря.
+              
+              p Это действие нельзя отменить. Все данные инвентаря будут удалены безвозвратно.
         .modal-footer
           button.secondary-button#cancelDelete Отмена
           button.danger-button#confirmDelete Удалить
 
   script.
     document.addEventListener('DOMContentLoaded', function() {
-      // Получаем ID оборудования из URL
+      // Получаем ID инвентаря из URL
       const pathSegments = window.location.pathname.split('/');
       const equipmentId = pathSegments[pathSegments.length - 1];
       
@@ -114,7 +143,9 @@ block content
             const data = await response.json();
             
             if (data.msg === '') {
-              alert('Данные оборудования успешно обновлены');
+              alert('Данные инвентаря успешно обновлены');
+              // Обновляем заголовок страницы
+              document.querySelector('.page-title').textContent = 'инвентарь: ' + formData.label;
             } else {
               alert('Ошибка: ' + data.msg);
             }
@@ -182,7 +213,7 @@ block content
             const data = await response.json();
             
             if (data.msg === '') {
-              alert('Оборудование успешно удалено');
+              alert('инвентарь успешно удалено');
               window.location.href = '/equipments';
             } else {
               alert('Ошибка: ' + data.msg);
@@ -191,7 +222,144 @@ block content
             
           } catch (error) {
             console.error('Error:', error);
-            alert('Ошибка при удалении оборудования');
+            alert('Ошибка при удалении инвентаря');
+          } finally {
+            confirmDeleteButton.disabled = false;
+            confirmDeleteButton.textContent = 'Удалить';
+          }
+        });
+      }
+    });
+
+  script.
+    document.addEventListener('DOMContentLoaded', function() {
+      // Получаем ID инвентаря из URL
+      const pathSegments = window.location.pathname.split('/');
+      const equipmentId = pathSegments[pathSegments.length - 1];
+      
+      const saveButton = document.getElementById('editSaveButton');
+      const deleteButton = document.getElementById('deleteButton');
+      const deleteModal = document.getElementById('deleteConfirmModal');
+      const deleteModalClose = document.getElementById('deleteModalClose');
+      const cancelDeleteButton = document.getElementById('cancelDelete');
+      const confirmDeleteButton = document.getElementById('confirmDelete');
+      
+      // Функция закрытия модального окна удаления
+      function closeDeleteModal() {
+        if (deleteModal) {
+          deleteModal.style.display = 'none';
+          document.body.style.overflow = 'auto';
+        }
+      }
+      
+      // Обработка сохранения изменений
+      if (saveButton) {
+        saveButton.addEventListener('click', async function() {
+          const formData = {
+            label: document.getElementById('editlabel').value.trim(),
+            description: document.getElementById('editdescription').value.trim()
+          };
+          
+          // Валидация
+          if (!formData.label) {
+            alert('Пожалуйста, заполните наименование');
+            return;
+          }
+          
+          // Показываем загрузку
+          saveButton.disabled = true;
+          saveButton.textContent = 'Сохранение...';
+          
+          try {
+            const response = await fetch(`/equipments/update/${equipmentId}`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(formData)
+            });
+            
+            const data = await response.json();
+            
+            if (data.msg === '') {
+              alert('Данные инвентаря успешно обновлены');
+            } else {
+              alert('Ошибка: ' + data.msg);
+            }
+            
+          } catch (error) {
+            console.error('Error:', error);
+            alert('Ошибка при обновлении данных');
+          } finally {
+            // Восстанавливаем кнопку
+            saveButton.disabled = false;
+            saveButton.textContent = 'Сохранить изменения';
+          }
+        });
+      }
+      
+      // Обработка удаления
+      if (deleteButton) {
+        deleteButton.addEventListener('click', function() {
+          if (deleteModal) {
+            deleteModal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+          }
+        });
+      }
+      
+      // Закрытие модального окна
+      if (deleteModalClose) {
+        deleteModalClose.addEventListener('click', closeDeleteModal);
+      }
+      
+      if (cancelDeleteButton) {
+        cancelDeleteButton.addEventListener('click', closeDeleteModal);
+      }
+      
+      // Закрытие модального окна при клике вне его
+      if (deleteModal) {
+        deleteModal.addEventListener('click', function(event) {
+          if (event.target === deleteModal) {
+            closeDeleteModal();
+          }
+        });
+      }
+      
+      // Закрытие по ESC
+      document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape' && deleteModal && deleteModal.style.display === 'flex') {
+          closeDeleteModal();
+        }
+      });
+      
+      // Подтверждение удаления
+      if (confirmDeleteButton) {
+        confirmDeleteButton.addEventListener('click', async function() {
+          confirmDeleteButton.disabled = true;
+          confirmDeleteButton.textContent = 'Удаление...';
+          
+          try {
+            const response = await fetch(`/equipments/delete/${equipmentId}`, {
+              method: 'DELETE',
+              headers: {
+                'Content-Type': 'application/json',
+              }
+            });
+            
+            const data = await response.json();
+            
+            if (data.msg === '') {
+              alert('инвентарь успешно удалено');
+              window.location.href = '/equipments';
+            } else {
+              alert('Ошибка: ' + data.msg);
+              closeDeleteModal();
+            }
+            
+          } catch (error) {
+            console.error('Error:', error);
+            alert('Ошибка при удалении инвентаря');
           } finally {
             confirmDeleteButton.disabled = false;
             confirmDeleteButton.textContent = 'Удалить';
@@ -307,6 +475,28 @@ block content
       color: #666;
       cursor: not-allowed;
     }
+
+    .form-group textarea {
+      padding: 14px 16px;
+      border: 2px solid #EAEAEA;
+      border-radius: 8px;
+      font-size: 16px;
+      max-width: 520px;
+      background: #FFFFFF;
+      transition: all 0.3s ease;
+    }
+    
+    .form-group textarea:focus {
+      outline: none;
+      border-color: #6C5FBC;
+      box-shadow: 0 0 0 3px rgba(108, 95, 188, 0.1);
+    }
+    
+    .form-group textarea:disabled {
+      background-color: #F8F8F8;
+      color: #666;
+      cursor: not-allowed;
+    }    
     
     .form-value {
       padding: 14px 0;
@@ -708,4 +898,63 @@ block content
         align-items: flex-start;
         gap: 5px;
       }
+    }
+
+    .services-list {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+  
+    .service-card {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      border: 1px solid #e9ecef;
+    }
+  
+    .service-header {
+      margin-bottom: 10px;
+    }
+  
+    .service-title {
+      margin: 0;
+      color: #333;
+      font-size: 18px;
+    }
+  
+    .service-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+  
+    .service-description {
+      color: #666;
+      font-size: 14px;
+      line-height: 1.5;
+      flex: 1;
+      margin-right: 15px;
+    }
+  
+    .service-actions {
+      flex-shrink: 0;
+    }
+  
+    .warning-details {
+      background: #fff3cd;
+      border: 1px solid #ffeaa7;
+      border-radius: 6px;
+      padding: 12px;
+      margin: 10px 0;
+    }
+  
+    .warning-details ul {
+      margin: 5px 0 0 0;
+      padding-left: 20px;
+    }
+  
+    .warning-details li {
+      color: #856404;
+      margin-bottom: 3px;
     }

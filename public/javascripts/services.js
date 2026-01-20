@@ -1,19 +1,32 @@
 $(document).ready(function(){
 
-    $('#create_service').click(function(e){
-        $('#create_service_popup').show()
-    })
+    // Открытие модального окна (если есть кнопка в DOM)
+    $(document).on('click', '#create_service, #create_service_empty', function(e){
+        e.preventDefault();
+        $('#create_service_popup').show();
+        $('body').css('overflow', 'hidden');
+    });
 
-    $('#create_service_popup_close').click(function(e){
-        $('#create_service_popup').hide()
-    })
+    // Закрытие модального окна
+    $(document).on('click', '#create_service_popup_close, #cancel_create_service', function(e){
+        e.preventDefault();
+        $('#create_service_popup').hide();
+        $('body').css('overflow', 'auto');
+        clearForm();
+    });
 
-    $('#cancel_create_service').click(function(e){
-        $('#create_service_popup').hide()
-    })
+    // Закрытие при клике вне окна
+    $(window).click(function(e){
+        if (e.target.id === 'create_service_popup') {
+            $('#create_service_popup').hide();
+            $('body').css('overflow', 'auto');
+            clearForm();
+        }
+    });
 
-    $('#submit_create_service').click(function(e){
-        e.preventDefault()
+    // Создание услуги
+    $(document).on('click', '#submit_create_service', function(e){
+        e.preventDefault();
 
         let data = {
             label: $('#inplabel').val(),
@@ -31,12 +44,15 @@ $(document).ready(function(){
         if (data.id_equip && data.id_equip !== '') {
             data.id_equip = parseInt(data.id_equip);
             if (isNaN(data.id_equip)) {
-                alert('ID оборудования должно быть числом');
+                alert('Ошибка выбора оборудования');
                 return;
             }
         } else {
             data.id_equip = null;
         }
+
+        // Показываем индикатор загрузки
+        $('#submit_create_service').prop('disabled', true).html('<span class="loading-spinner"></span> Создание...');
 
         $.ajax({
             type: 'POST',
@@ -46,16 +62,25 @@ $(document).ready(function(){
             dataType: 'JSON'
         }).done(function( response ) {
             if (response.msg === '') {
-                alert('Услуга создана')
-                window.location.reload()
+                alert('Услуга создана');
+                window.location.reload();
             }
             else {
-                alert(response.msg)
+                alert(response.msg);
+                $('#submit_create_service').prop('disabled', false).text('Создать');
             }
         }).fail(function(xhr, status, error) {
             console.error('Error:', error);
             alert('Ошибка при создании услуги: ' + error);
+            $('#submit_create_service').prop('disabled', false).text('Создать');
         });
     });
+
+    // Функция очистки формы
+    function clearForm() {
+        $('#inplabel').val('');
+        $('#inpdescription').val('');
+        $('#inpid_equip').val('');
+    }
 
 });
