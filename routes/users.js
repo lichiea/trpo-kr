@@ -369,4 +369,30 @@ router.delete('/delete/:id', async function(req, res) {
     }
 });
 
+// 
+router.get('/by-role/:role', async function(req, res) {
+    let role = req.params.role;
+    try {
+        let users = await req.db.any(`
+            SELECT
+                users.id AS id,
+                users.login AS login,
+                employees.fio AS fio,
+                employees.position_d AS position_d
+            FROM
+                users
+            LEFT JOIN employees ON users.id = employees.id_pol
+            WHERE
+                users.id_role = $1
+            AND employees.id IS NOT NULL
+            ORDER BY
+                employees.fio, users.login
+        `, role)
+        res.json(users)
+    } catch (error) {
+        console.error('Error fetching users by role:', error);
+        res.status(500).json({error: 'Ошибка сервера'});
+    }
+});
+
 module.exports = router;

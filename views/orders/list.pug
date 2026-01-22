@@ -2,7 +2,7 @@ extends ../layout
 
 block content
 
-  // Первое навигационное поле
+  // Навигационное поле
   header.header
     .container
       .header-content
@@ -13,9 +13,31 @@ block content
   .page-container
     h1.page-title= title
     
-    if can_view_orders
-      .actions-panel
+    // Панель действий и фильтры
+    .actions-panel
+      if can_view_orders
         button.primary-button(id='create_order') Создать заказ
+    
+    // Фильтры
+    .filters-card
+      form#filtersForm(method='GET' action='/orders')
+        .filter-grid
+          .form-group
+            label(for="filter_status") Статус заказа
+            select#filter_status(name="status")
+              option(value="all") Все статусы
+              each status in statuses
+                option(value=status.status selected=(currentFilters.status === status.status))= status.status
+          
+          .form-group
+            label(for="filter_client") ФИО клиента
+            input#filter_client(type="text" name="client_fio" placeholder="Поиск по ФИО..." value=currentFilters.client_fio)
+          
+          .form-group
+            label &nbsp;
+            .filter-buttons
+              button.secondary-button(type="submit") Применить
+              a.button-link(href='/orders') Сбросить
     
     .content-card
       if orders && orders.length > 0
@@ -29,6 +51,7 @@ block content
                 th Клиент
                 th Общая стоимость
                 th Плановая дата
+                th Площадь объекта
                 th Описание
             tbody
               each order in orders
@@ -36,170 +59,177 @@ block content
                   td
                     a(href='/orders/' + order.id)= order.id
                   td
-                    span.status-badge(class=order.status.replace(/\s+/g, '-').toLowerCase())= order.status
-                  td= order.creationDate ? new Date(order.creationDate).toLocaleDateString('ru-RU') : '-'
+                    if order.status
+                      span.status-badge(class=order.status.replace(/\s+/g, '-').toLowerCase())= order.status
+                    else
+                      | -
+                  td
+                    if order.creationdate
+                      = new Date(order.creationdate).toLocaleDateString('ru-RU')
+                    else
+                      | -
                   td
                     a(href='/orders/' + order.id)= order.client_fio || 'Клиент #' + order.id_client
-                  td= order.totalCost ? order.totalCost.toLocaleString('ru-RU') + ' ₽' : '-'
-                  td= order.plannedDate ? new Date(order.plannedDate).toLocaleDateString('ru-RU') : '-'
+                  td
+                    if order.totalcost
+                      = order.totalcost.toLocaleString('ru-RU') + ' ₽'
+                    else
+                      | -
+                  td
+                    if order.planneddate
+                      = new Date(order.planneddate).toLocaleDateString('ru-RU')
+                    else
+                      | -
+                  td= order.object_square ? order.object_square + ' м²' : '-'
                   td.description-cell= order.description || '-'
+        .table-footer
+          .table-info Найдено заказов: #{orders.length}
       else
         .empty-state
           p Нет заказов в базе данных
+          if currentFilters.status !== 'all' || currentFilters.client_fio
+            p Попробуйте изменить параметры фильтрации
+            a.button-link(href='/orders') Показать все заказы
 
     // Модальное окно для создания заказа
     div#create_order_popup.modal-window(style="display:none")
-      .modal-content
+      .modal-content(style="width: 800px; max-width: 90vw;")
         .modal-header
           h3 Создать заказ
           button.modal-close#create_order_popup_close ×
         .modal-body
           form.modal-form#orderForm
-            .form-group
-              label(for="inpstatus") Статус
-              select#inpstatus(name="status")
-                option(value="Новый") Новый
-                option(value="Обработка заказа менеджером") Обработка заказа менеджером
-                option(value="На согласовании ЗН") На согласовании ЗН
-                option(value="В ожидании") В ожидании
-                option(value="Заказ в работе") Заказ в работе
-                option(value="Заказ выполнен") Заказ выполнен
-                option(value="На согласовании акта") На согласовании акта
-                option(value="Акт согласован") Акт согласован
-                option(value="Акт не согласован") Акт не согласован
-                option(value="Выставлен счет на оплату") Выставлен счет на оплату
-                option(value="Заказ оплачен") Заказ оплачен
-                option(value="Завершён") Завершён
-            .form-group
-              label(for="inpcreationDate") Дата создания
-              input#inpcreationDate(type="date" name="creationDate")
-            .form-group
-              label(for="inpid_client") Клиент
-              select#inpid_client(name="id_client")
-                option(value="") Выберите клиента
-                // Список клиентов будет заполнен JavaScript
-            .form-group
-              label(for="inptotalCost") Общая стоимость (₽)
-              input#inptotalCost(type="number" placeholder="0" min="0" name="totalCost")
-            .form-group
-              label(for="inpplannedDate") Плановая дата выполнения
-              input#inpplannedDate(type="date" name="plannedDate")
-            .form-group
-              label(for="inpdescription") Описание заказа
-              textarea#inpdescription(placeholder="Описание заказа..." rows="3" name="description")
+            .form-grid
+              .form-group
+                label(for="inpstatus") Статус *
+                select#inpstatus(name="id_status" required)
+                  option(value="Новый") Новый
+            
+            .form-section
+              h4.section-subtitle Клиент и объект уборки
+              
+              .client-selection
+                .form-group
+                  label(for="inpclient") Клиент *
+                  .client-select-wrapper
+                    select#inpclient(name="id_client" required)
+                      option(value="") Выберите клиента
+                    button.type-button#addClientBtn(type="button") + Новый
+                
+                .form-group
+                  label(for="inpclean_object") Объект уборки
+                  .object-select-wrapper
+                    select#inpclean_object(name="id_clean_object")
+                      option(value="") Выберите объект
+                    button.type-button#addObjectBtn(type="button") + Новый
+            
+            .form-section
+              h4.section-subtitle Детали заказа
+              .form-grid
+                .form-group
+                  label(for="inpcreationDate") Дата создания
+                  input#inpcreationDate(type="date" name="creationDate")
+                .form-group
+                  label(for="inpplannedDate") Плановая дата выполнения
+                  input#inpplannedDate(type="date" name="plannedDate")
+                .form-group.full-width
+                  label(for="inpdescription") Описание заказа
+                  textarea#inpdescription(placeholder="Описание заказа..." rows="3" name="description")
+            
+            .form-section
+              h4.section-subtitle Услуги в заказе
+              #services-container
+                .service-item
+                  .service-header
+                    label Услуга 1 *
+                    button.type-button.remove-service(type="button") ✕
+                  .service-row
+                    .form-group
+                      select.service-select(name="service[]" required)
+                        option(value="") Выберите услугу
+                    .form-group
+                      .price-display
+                        .price-label Цена:
+                        span.price-value 0 ₽
+                    input.service-id(type="hidden" name="service_id[]")
+                    input.service-price(type="hidden" name="service_price[]")
+              
+              .form-group
+                button.secondary-button#addServiceBtn(type="button") + Добавить услугу
+              
+              .total-cost-display
+                h4 Итого: 
+                  span#total-cost 0 ₽
+
         .modal-footer
           button.secondary-button#cancel_create_order Отменить
-          button.primary-button#submit_create_order Создать
+          button.primary-button#submit_create_order Создать заказ
 
-  script.
-    document.addEventListener('DOMContentLoaded', function() {
-      const createBtn = document.getElementById('create_order');
-      const popup = document.getElementById('create_order_popup');
-      const closeBtn = document.getElementById('create_order_popup_close');
-      const cancelBtn = document.getElementById('cancel_create_order');
-      const submitBtn = document.getElementById('submit_create_order');
-      
-      // Загружаем список клиентов при открытии модального окна
-      if (createBtn) {
-        createBtn.addEventListener('click', async function() {
-          try {
-            const response = await fetch('/clients/list');
-            const clients = await response.json();
-            const select = document.getElementById('inpid_client');
-            
-            // Очищаем текущие опции
-            select.innerHTML = '<option value="">Выберите клиента</option>';
-            
-            // Добавляем клиентов
-            clients.forEach(client => {
-              const option = document.createElement('option');
-              option.value = client.id;
-              option.textContent = client.name || `Клиент #${client.id}`;
-              select.appendChild(option);
-            });
-            
-            // Устанавливаем сегодняшнюю дату по умолчанию
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('inpcreationDate').value = today;
-            
-            popup.style.display = 'block';
-          } catch (error) {
-            console.error('Error loading clients:', error);
-            alert('Ошибка загрузки списка клиентов');
-          }
-        });
-      }
-      
-      if (closeBtn) {
-        closeBtn.addEventListener('click', function() {
-          popup.style.display = 'none';
-          clearForm();
-        });
-      }
-      
-      if (cancelBtn) {
-        cancelBtn.addEventListener('click', function() {
-          popup.style.display = 'none';
-          clearForm();
-        });
-      }
-      
-      function clearForm() {
-        document.getElementById('orderForm').reset();
-      }
-      
-      window.addEventListener('click', function(event) {
-        if (event.target === popup) {
-          popup.style.display = 'none';
-          clearForm();
-        }
-      });
-      
-      // Обработка отправки формы
-      if (submitBtn) {
-        submitBtn.addEventListener('click', async function(e) {
-          e.preventDefault();
-          
-          const form = document.getElementById('orderForm');
-          const formData = new FormData(form);
-          const data = Object.fromEntries(formData.entries());
-          
-          // Валидация
-          if (!data.id_client || !data.totalCost) {
-            alert('Пожалуйста, заполните обязательные поля (клиент и общая стоимость)');
-            return;
-          }
-          
-          submitBtn.disabled = true;
-          submitBtn.textContent = 'Создание...';
-          
-          try {
-            const response = await fetch('/orders/create', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(data)
-            });
-            
-            const result = await response.json();
-            
-            if (result.msg === '') {
-              alert('Заказ успешно создан');
-              window.location.reload();
-            } else {
-              alert('Ошибка: ' + result.msg);
-            }
-          } catch (error) {
-            console.error('Error:', error);
-            alert('Ошибка при создании заказа');
-          } finally {
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Создать';
-          }
-        });
-      }
-    });
+    // Модальное окно для создания клиента
+    div#create_client_popup.modal-window(style="display:none")
+      .modal-content
+        .modal-header
+          h3 Создать нового клиента
+          button.modal-close#create_client_popup_close ×
+        .modal-body
+          form#clientForm
+            .form-group
+              label(for="client_fio") ФИО *
+              input#client_fio(type="text" placeholder="Иванов Иван Иванович" required)
+            .form-group
+              label(for="client_phone") Телефон *
+              input#client_phone(type="text" placeholder="89991234567" required)
+            .form-group
+              label(for="client_email") Email
+              input#client_email(type="email" placeholder="client@example.com")
+            .form-group
+              label(for="client_type") Тип клиента
+              select#client_type
+                option(value="Физическое лицо") Физическое лицо
+                option(value="Юридическое лицо") Юридическое лицо
+            .form-group
+              label(for="client_login") Логин для входа *
+              input#client_login(type="text" placeholder="Логин" required)
+            .form-group
+              label(for="client_password") Пароль *
+              input#client_password(type="password" placeholder="Пароль" required)
+        .modal-footer
+          button.secondary-button#cancel_create_client Отмена
+          button.primary-button#submit_create_client Создать
+
+    // Модальное окно для создания объекта уборки
+    div#create_object_popup.modal-window(style="display:none")
+      .modal-content
+        .modal-header
+          h3 Создать объект уборки
+          button.modal-close#create_object_popup_close ×
+        .modal-body
+          form#objectForm
+            .form-group
+              label(for="object_client") Клиент *
+              select#object_client(required)
+                option(value="") Выберите клиента
+            .form-group
+              label(for="object_type") Тип объекта *
+              select#object_type(required)
+                option(value="Квартира") Квартира
+                option(value="Офисное помещение") Офисное помещение
+                option(value="Дом/танхаус") Дом/танхаус
+                option(value="Другое") Другое
+            .form-group
+              label(for="object_address") Адрес *
+              input#object_address(type="text" placeholder="ул. Ленина, д. 10, кв. 25" required)
+            .form-group
+              label(for="object_square") Площадь (м²)
+              input#object_square(type="number" placeholder="65")
+            .form-group
+              label(for="object_description") Описание
+              textarea#object_description(rows="3" placeholder="Описание объекта...")
+        .modal-footer
+          button.secondary-button#cancel_create_object Отмена
+          button.primary-button#submit_create_object Создать
+
+  script(src='/javascripts/orders.js')
 
   style.
     /* Общие стили */
@@ -274,6 +304,24 @@ block content
     }
     
     .primary-button:hover {
+      background-color: #5C4EAE;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 15px rgba(108, 95, 188, 0.3);
+    }
+
+    .type-button {
+      background-color: #6C5FBC;
+      color: white;
+      padding: 12px 28px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+    }
+    
+    .type-button:hover {
       background-color: #5C4EAE;
       transform: translateY(-2px);
       box-shadow: 0 6px 15px rgba(108, 95, 188, 0.3);
@@ -359,6 +407,28 @@ block content
       text-decoration: underline;
     }
     
+    .form-group select{
+      padding: 14px 16px;
+      border: 2px solid #EAEAEA;
+      border-radius: 8px;
+      font-size: 16px;
+      max-width: 520px;
+      background: #FFFFFF;
+      transition: all 0.3s ease;
+    }
+    
+    .form-group select:focus {
+      outline: none;
+      border-color: #6C5FBC;
+      box-shadow: 0 0 0 3px rgba(108, 95, 188, 0.1);
+    }
+    
+    .form-group select:disabled {
+      background-color: #F8F8F8;
+      color: #666;
+      cursor: not-allowed;
+    }  
+
     /* Состояние пустого списка */
     .empty-state {
       text-align: center;

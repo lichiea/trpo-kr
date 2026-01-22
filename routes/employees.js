@@ -1,12 +1,30 @@
 var express = require('express');
 var router = express.Router();
 
+// Список допустимых ролей для сотрудников
+const EMPLOYEE_ROLES = ['Администратор', 'Менеджер', 'Бригадир', 'Клинер'];
+
+// Функция для получения класса CSS для роли
+const getRoleClass = (role) => {
+    const roleClasses = {
+        'Администратор': 'role-admin',
+        'Менеджер': 'role-manager',
+        'Бригадир': 'role-taskmaster',
+        'Клинер': 'role-cleaner'
+    };
+    return roleClasses[role] || 'role-default';
+};
+
 router.get('/', async function(req, res, next) {
+    var user = session.auth(req).user;
+    var can_view_employees = user && user.id_role ? true : false;
 
-    var user = session.auth(req).user
-    var can_view_employees = user && user.id_role ? true : false
-
-    let employees = await req.db.any(`
+    // Получаем параметры фильтрации и поиска из query string
+    const roleFilter = req.query.role || '';
+    const searchQuery = req.query.search || '';
+    
+    // Строим базовый запрос
+    let query = `
         SELECT
             employees.id AS id,
             employees.fio AS fio,
@@ -14,28 +32,92 @@ router.get('/', async function(req, res, next) {
             employees.email AS email,
             employees.position_d AS position_d,
             employees.specialization AS specialization,
-            employees.id_pol AS id_pol
+            employees.id_pol AS id_pol,
+            users.id_role AS user_role
         FROM
             employees
-    `)
-    console.log(employees)
-    res.render('employees/list', { title: 'Сотрудники', employees: employees, can_view_employees: can_view_employees })
-
+        LEFT JOIN users ON employees.id_pol = users.id
+        WHERE 1=1
+    `;
+    
+    let params = [];
+    let paramCount = 0;
+    
+    // Добавляем фильтр по роли
+    if (roleFilter && roleFilter !== 'all') {
+        paramCount++;
+        query += ` AND users.id_role = $${paramCount}`;
+        params.push(roleFilter);
+    }
+    
+    // Добавляем поиск по ФИО
+    if (searchQuery) {
+        paramCount++;
+        query += ` AND employees.fio ILIKE $${paramCount}`;
+        params.push(`%${searchQuery}%`);
+    }
+    
+    query += ` ORDER BY employees.id`;
+    
+    let employees = await req.db.any(query, params);
+    
+    // Добавляем вычисление класса для ролей каждому сотруднику
+    employees.forEach(emp => {
+        emp.roleClass = getRoleClass(emp.user_role);
+    });
+    
+    console.log('Filtered employees:', employees.length);
+    res.render('employees/list', { 
+        title: 'Сотрудники', 
+        employees: employees, 
+        can_view_employees: can_view_employees,
+        roles: EMPLOYEE_ROLES,
+        current_role: roleFilter,
+        current_search: searchQuery
+    });
 });
 
 router.post('/create', async function(req, res, next) {
-    let employee = req.body;
+    let employeeData = req.body;
+    
+    console.log('Create employee data:', employeeData);
     
     // Валидация
-    if (!employee.fio || !employee.phone || !employee.position_d) {
-        return res.send({msg: 'Обязательные поля: ФИО, телефон и должность'});
+    if (!employeeData.fio || !employeeData.login || !employeeData.pass || !employeeData.position_d) {
+        return res.send({msg: 'Обязательные поля: ФИО, логин, пароль и должность'});
     }
-
+    
+    // Проверяем, что роль из допустимого списка
+    if (!employeeData.id_role || !EMPLOYEE_ROLES.includes(employeeData.id_role)) {
+        return res.send({msg: 'Неверная роль. Допустимые значения: ' + EMPLOYEE_ROLES.join(', ')});
+    }
+    
     try {
-        await req.db.none(
-            'INSERT INTO employees(fio, phone, email, position_d, specialization) VALUES(${fio}, ${phone}, ${email}, ${position_d}, ${specialization})', 
-            employee
-        );
+        // Начинаем транзакцию
+        await req.db.tx(async t => {
+            // 1. Создаем запись в таблице users
+            const newUser = await t.one(
+                'INSERT INTO users(login, pass, id_role) VALUES($1, $2, $3) RETURNING id',
+                [employeeData.login, employeeData.pass, employeeData.id_role]
+            );
+            
+            const userId = newUser.id;
+            
+            // 2. Создаем запись в таблице employees
+            await t.none(
+                `INSERT INTO employees(fio, phone, email, position_d, specialization, id_pol) 
+                 VALUES($1, $2, $3, $4, $5, $6)`,
+                [
+                    employeeData.fio,
+                    employeeData.phone || null,
+                    employeeData.email || null,
+                    employeeData.position_d,
+                    employeeData.specialization || null,
+                    userId
+                ]
+            );
+        });
+        
         res.send({msg: ''});
     } catch (error) {
         console.error('Create error:', error);
@@ -46,10 +128,10 @@ router.post('/create', async function(req, res, next) {
 router.get('/:id', async function(req, res) {
     let id = parseInt(req.params.id);
     if (isNaN(id))
-       return res.status(400).send('Invalid employee ID');
+        return res.status(400).send('Invalid employee ID');
 
-    var user = session.auth(req).user
-    var can_view_employees = user && user.id_role ? true : false
+    var user = session.auth(req).user;
+    var can_view_employees = user && user.id_role ? true : false;
 
     try {
         // Получаем данные сотрудника
@@ -61,23 +143,14 @@ router.get('/:id', async function(req, res) {
                 employees.email AS email,
                 employees.position_d AS position_d,
                 employees.specialization AS specialization,
-                employees.id_pol AS id_pol
+                employees.id_pol AS id_pol,
+                users.id_role AS user_role,
+                users.login AS user_login
             FROM
                 employees
+            LEFT JOIN users ON employees.id_pol = users.id
             WHERE
                 employees.id = ${id}
-        `)
-
-        // Получаем данные пользователя (логин и роль) из таблицы users
-        let userData = await req.db.oneOrNone(`
-            SELECT
-                users.id AS user_id,
-                users.login AS login,
-                users.id_role AS role
-            FROM
-                users
-            WHERE
-                users.id = ${employee.id_pol}
         `)
 
         // Получаем номер бригады из таблицы team_items
@@ -121,7 +194,6 @@ router.get('/:id', async function(req, res) {
         res.render('employees/view', { 
             title: 'Сотрудник: ' + employee.fio, 
             employee: employee, 
-            userData: userData,
             teamInfo: teamInfo,
             teamLeaderInfo: teamLeaderInfo,
             isTeamLeader: isTeamLeader,
@@ -132,9 +204,7 @@ router.get('/:id', async function(req, res) {
         console.error('Error fetching employee details:', error);
         res.status(500).send('Ошибка сервера: ' + error.message);
     }
-
 });
-
 
 // Роут для обновления сотрудника
 router.post('/update/:id', async function(req, res) {

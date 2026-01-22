@@ -29,17 +29,21 @@ block content
                 .form-value= team.id
               
               .form-group
-                label(for="editTaskmaster") Бригадир:
+                label(for="editTaskmaster") Бригадир (пользователь с ролью "Бригадир"):
                 if can_view_teams
                   select#editTaskmaster(name="id_taskmaster")
                     option(value="") Не назначен
-                    each employee in all_employees
-                      option(value=employee.id, selected=(employee.id == team.id_taskmaster))
-                        | #{employee.fio} (#{employee.position_d || 'без должности'})
+                    each taskmaster in taskmasters
+                      option(
+                        value=taskmaster.user_id, 
+                        selected=(team.taskmaster_user_id == taskmaster.user_id)
+                      )= `${taskmaster.fio} (${taskmaster.position_d || 'без должности'})`
                 else
                   .form-value
                     if team.taskmaster_fio
                       a(href='/employees/' + team.id_taskmaster)= team.taskmaster_fio
+                      if team.taskmaster_login
+                        span.info-text (логин: #{team.taskmaster_login})
                     else
                       | Не назначен
 
@@ -47,59 +51,124 @@ block content
                 .buttons-row
                   if can_view_teams
                     button.primary-button#editSaveButton(type="button") Сохранить изменения
-                    button.secondary-button#addMemberButton(type="button") Добавить сотрудника
+                    button.secondary-button#addMemberButton(type="button") Добавить клинера
                     button.danger-button#deleteButton(type="button") Удалить бригаду
                   else
                     .no-permission-message У вас нет прав для редактирования бригады
 
         .info-section
-          h2.section-title Состав бригады
+          h2.section-title Состав бригады (Клинеры)
           
           if team_members && team_members.length > 0
             .table-container
               table.data-table
                 thead
                   tr
-                    th ID
                     th ФИО
+                    th Логин
                     th Должность
                     if can_view_teams
                       th Действия
                 tbody
                   each member in team_members
                     tr
-                      td= member.employee_id
                       td
                         a(href='/employees/' + member.employee_id)= member.employee_fio
+                      td= member.employee_login
                       td= member.employee_position
                       if can_view_teams
                         td
-                          button.danger-button.remove-member-btn(
+                          button.danger-button.small-button.remove-member-btn(
                             data-item-id=member.item_id,
                             data-employee-name=member.employee_fio
                           ) Удалить
           else
-            .empty-message В бригаде нет сотрудников
+            .empty-message В бригаде нет клинеров
 
-    // Модальное окно для добавления сотрудника
+        // Новый раздел: Заказы бригады
+        .info-section
+          .section-header
+            h2.section-title Заказы, назначенные на бригаду
+            .stats-badge
+              span.total= orders_stats.total_orders
+              |  всего
+              if orders_stats.active_orders > 0
+                span.active= orders_stats.active_orders
+                |  в работе
+          
+          if team_orders && team_orders.length > 0
+            .table-container
+              table.data-table
+                thead
+                  tr
+                    th ID заказа
+                    th Статус
+                    th Клиент
+                    th Телефон клиента
+                    th Плановая дата
+                    th Тип документа
+                    th Сумма
+                    th Подписи
+                tbody
+                  each order in team_orders
+                    tr(class=order.order_status === 'Заказ в работе' ? 'active-row' : '')
+                      td
+                        a(href='/orders/' + order.order_id)= order.order_id
+                      td
+                        .status-badge(class=order.order_status.replace(/\s+/g, '-').toLowerCase())
+                          = order.order_status
+                      td
+                        a(href='/clients/' + order.order_id)= order.client_fio
+                      td= order.client_phone
+                      td
+                        if order.planned_date
+                          = new Date(order.planned_date).toLocaleDateString('ru-RU')
+                        else
+                          | Не указана
+                      td= order.document_type
+                      td
+                        if order.total_cost
+                          = new Intl.NumberFormat('ru-RU').format(order.total_cost) + ' ₽'
+                        else
+                          | Не указана
+                      td
+                        if order.client_signed && order.employee_signed
+                          .signatures.both-signed
+                            i.fas.fa-check-circle
+                            span Подписаны
+                        else if order.client_signed || order.employee_signed
+                          .signatures.partial-signed
+                            i.fas.fa-check-circle
+                            span Частично
+                        else
+                          .signatures.not-signed
+                            i.fas.fa-times-circle
+                            span Не подписаны
+          else
+            .empty-message
+              i.fas.fa-clipboard-list
+              p На бригаду не назначено ни одного заказа
+
+    // Модальные окна остаются без изменений
     div#addMemberModal.modal-window(style="display: none;")
+      .modal-overlay
       .modal-content
         .modal-header
-          h3 Добавить сотрудника в бригаду
+          h3 Добавить клинера в бригаду
           button.modal-close#addMemberModalClose ×
         .modal-body
           .form-group
-            label(for="selectEmployee") Выберите сотрудника:
+            label(for="selectEmployee") Выберите клинера (пользователя с ролью "Клинер"):
             select#selectEmployee
-              option(value="") Выберите сотрудника
-              each employee in all_employees
-                option(value=employee.id)= `${employee.fio} (${employee.position_d || 'без должности'})`
+              option(value="") Выберите клинера
+              each cleaner in cleaners
+                option(value=cleaner.user_id)= `${cleaner.fio} (${cleaner.position_d || 'без должности'})`
         .modal-footer
           button.secondary-button#cancelAddMember Отмена
           button.primary-button#confirmAddMember Добавить
 
-    // Модальное окно для подтверждения удаления
     div#deleteConfirmModal.modal-window(style="display: none;")
+      .modal-overlay
       .modal-content
         .modal-header
           h3 Подтверждение удаления
@@ -117,7 +186,10 @@ block content
           button.danger-button#confirmDelete Удалить
 
   script.
+    // JavaScript код остается без изменений, как в предыдущем исправлении
     document.addEventListener('DOMContentLoaded', function() {
+      console.log('DOMContentLoaded - инициализация страницы бригады');
+      
       const saveButton = document.getElementById('editSaveButton');
       const addMemberButton = document.getElementById('addMemberButton');
       const deleteButton = document.getElementById('deleteButton');
@@ -133,22 +205,40 @@ block content
       const cancelDeleteButton = document.getElementById('cancelDelete');
       const confirmDeleteButton = document.getElementById('confirmDelete');
       
-      // Получаем ID бригады из URL
       const pathSegments = window.location.pathname.split('/');
       const teamId = pathSegments[pathSegments.length - 1];
       
-      // Обновление данных бригады
+      console.log('Elements found:', {
+        saveButton: !!saveButton,
+        addMemberButton: !!addMemberButton,
+        deleteButton: !!deleteButton
+      });
+      
+      function openModal(modal) {
+        console.log('Opening modal:', modal.id);
+        if (modal) {
+          modal.style.display = 'block';
+          document.body.style.overflow = 'hidden';
+        }
+      }
+      
+      function closeModal(modal) {
+        console.log('Closing modal:', modal.id);
+        if (modal) {
+          modal.style.display = 'none';
+          document.body.style.overflow = 'auto';
+        }
+      }
+      
       if (saveButton) {
-        saveButton.addEventListener('click', async function() {
-          const formData = {
-            id_taskmaster: document.getElementById('editTaskmaster').value
-          };
+        saveButton.addEventListener('click', async function(e) {
+          console.log('Save button clicked');
+          e.preventDefault();
           
-          // Валидация
-          if (!formData.id_taskmaster && formData.id_taskmaster !== '') {
-            alert('Пожалуйста, выберите бригадира или оставьте поле пустым');
-            return;
-          }
+          const taskmasterUserId = document.getElementById('editTaskmaster').value;
+          const formData = {
+            id_taskmaster: taskmasterUserId || null
+          };
           
           saveButton.disabled = true;
           saveButton.textContent = 'Сохранение...';
@@ -173,7 +263,7 @@ block content
             
           } catch (error) {
             console.error('Error:', error);
-            alert('Ошибка при обновлении данных');
+            alert('Ошибка при обновлении данных: ' + error.message);
           } finally {
             saveButton.disabled = false;
             saveButton.textContent = 'Сохранить изменения';
@@ -181,36 +271,43 @@ block content
         });
       }
       
-      // Добавление сотрудника в бригаду
       if (addMemberButton) {
-        addMemberButton.addEventListener('click', function() {
-          addMemberModal.style.display = 'flex';
-          document.body.style.overflow = 'hidden';
+        addMemberButton.addEventListener('click', function(e) {
+          console.log('Add member button clicked');
+          e.preventDefault();
+          openModal(addMemberModal);
         });
       }
       
-      // Закрытие модального окна добавления
       function closeAddMemberModal() {
-        addMemberModal.style.display = 'none';
-        document.body.style.overflow = 'auto';
-        selectEmployee.value = '';
+        closeModal(addMemberModal);
+        if (selectEmployee) {
+          selectEmployee.value = '';
+        }
       }
       
       if (addMemberModalClose) {
-        addMemberModalClose.addEventListener('click', closeAddMemberModal);
+        addMemberModalClose.addEventListener('click', function(e) {
+          e.preventDefault();
+          closeAddMemberModal();
+        });
       }
       
       if (cancelAddMemberButton) {
-        cancelAddMemberButton.addEventListener('click', closeAddMemberModal);
+        cancelAddMemberButton.addEventListener('click', function(e) {
+          e.preventDefault();
+          closeAddMemberModal();
+        });
       }
       
-      // Подтверждение добавления сотрудника
       if (confirmAddMemberButton) {
-        confirmAddMemberButton.addEventListener('click', async function() {
-          const employeeId = selectEmployee.value;
+        confirmAddMemberButton.addEventListener('click', async function(e) {
+          e.preventDefault();
           
-          if (!employeeId) {
-            alert('Пожалуйста, выберите сотрудника');
+          const userId = selectEmployee.value;
+          
+          if (!userId) {
+            alert('Пожалуйста, выберите клинера');
             return;
           }
           
@@ -223,13 +320,13 @@ block content
               headers: {
                 'Content-Type': 'application/json',
               },
-              body: JSON.stringify({ id_employee: employeeId })
+              body: JSON.stringify({ user_id: parseInt(userId) })
             });
             
             const data = await response.json();
             
             if (data.msg === '') {
-              alert('Сотрудник добавлен в бригаду');
+              alert('Клинер добавлен в бригаду');
               window.location.reload();
             } else {
               alert('Ошибка: ' + data.msg);
@@ -237,7 +334,7 @@ block content
             
           } catch (error) {
             console.error('Error:', error);
-            alert('Ошибка при добавлении сотрудника');
+            alert('Ошибка при добавлении клинера: ' + error.message);
           } finally {
             confirmAddMemberButton.disabled = false;
             confirmAddMemberButton.textContent = 'Добавить';
@@ -245,13 +342,14 @@ block content
         });
       }
       
-      // Удаление сотрудника из бригады
       document.querySelectorAll('.remove-member-btn').forEach(button => {
-        button.addEventListener('click', async function() {
+        button.addEventListener('click', async function(e) {
+          e.preventDefault();
+          
           const itemId = this.dataset.itemId;
           const employeeName = this.dataset.employeeName;
           
-          if (confirm(`Удалить ${employeeName} из бригады?`)) {
+          if (confirm(`Удалить "${employeeName}" из бригады?`)) {
             try {
               const response = await fetch(`/teams/${teamId}/remove-member/${itemId}`, {
                 method: 'DELETE',
@@ -263,7 +361,7 @@ block content
               const data = await response.json();
               
               if (data.msg === '') {
-                alert('Сотрудник удален из бригады');
+                alert('Клинер удален из бригады');
                 window.location.reload();
               } else {
                 alert('Ошибка: ' + data.msg);
@@ -271,37 +369,42 @@ block content
               
             } catch (error) {
               console.error('Error:', error);
-              alert('Ошибка при удалении сотрудника');
+              alert('Ошибка при удалении клинера');
             }
           }
         });
       });
       
-      // Удаление бригады
       if (deleteButton) {
-        deleteButton.addEventListener('click', function() {
-          deleteModal.style.display = 'flex';
-          document.body.style.overflow = 'hidden';
+        deleteButton.addEventListener('click', function(e) {
+          console.log('Delete button clicked');
+          e.preventDefault();
+          openModal(deleteModal);
         });
       }
       
-      // Закрытие модального окна удаления
       function closeDeleteModal() {
-        deleteModal.style.display = 'none';
-        document.body.style.overflow = 'auto';
+        closeModal(deleteModal);
       }
       
       if (deleteModalClose) {
-        deleteModalClose.addEventListener('click', closeDeleteModal);
+        deleteModalClose.addEventListener('click', function(e) {
+          e.preventDefault();
+          closeDeleteModal();
+        });
       }
       
       if (cancelDeleteButton) {
-        cancelDeleteButton.addEventListener('click', closeDeleteModal);
+        cancelDeleteButton.addEventListener('click', function(e) {
+          e.preventDefault();
+          closeDeleteModal();
+        });
       }
       
-      // Подтверждение удаления бригады
       if (confirmDeleteButton) {
-        confirmDeleteButton.addEventListener('click', async function() {
+        confirmDeleteButton.addEventListener('click', async function(e) {
+          e.preventDefault();
+          
           confirmDeleteButton.disabled = true;
           confirmDeleteButton.textContent = 'Удаление...';
           
@@ -333,28 +436,41 @@ block content
         });
       }
       
-      // Закрытие модальных окон при клике вне их
-      window.addEventListener('click', function(event) {
-        if (event.target === addMemberModal) {
-          closeAddMemberModal();
-        }
-        if (event.target === deleteModal) {
-          closeDeleteModal();
-        }
+      document.querySelectorAll('.modal-overlay').forEach(overlay => {
+        overlay.addEventListener('click', function(e) {
+          e.preventDefault();
+          const modal = this.closest('.modal-window');
+          closeModal(modal);
+        });
       });
       
-      // Закрытие по ESC
       document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape') {
-          if (addMemberModal.style.display === 'flex') {
+          if (addMemberModal.style.display === 'block') {
             closeAddMemberModal();
           }
-          if (deleteModal.style.display === 'flex') {
+          if (deleteModal.style.display === 'block') {
             closeDeleteModal();
           }
         }
       });
+      
+      console.log('Initial modal states:', {
+        addMemberModal: addMemberModal.style.display,
+        deleteModal: deleteModal.style.display
+      });
+      
+      if (addMemberModal.style.display === 'block') {
+        console.log('Add member modal was open on load, closing...');
+        closeAddMemberModal();
+      }
+      
+      if (deleteModal.style.display === 'block') {
+        console.log('Delete modal was open on load, closing...');
+        closeDeleteModal();
+      }
     });
+
 
   style.
     /* Общие стили */
@@ -463,6 +579,28 @@ block content
       color: #666;
       cursor: not-allowed;
     }
+
+    .form-group select{
+      padding: 14px 16px;
+      border: 2px solid #EAEAEA;
+      border-radius: 8px;
+      font-size: 16px;
+      max-width: 520px;
+      background: #FFFFFF;
+      transition: all 0.3s ease;
+    }
+    
+    .form-group select:focus {
+      outline: none;
+      border-color: #6C5FBC;
+      box-shadow: 0 0 0 3px rgba(108, 95, 188, 0.1);
+    }
+    
+    .form-group select:disabled {
+      background-color: #F8F8F8;
+      color: #666;
+      cursor: not-allowed;
+    }  
     
     .form-value {
       padding: 14px 0;
@@ -583,6 +721,12 @@ block content
       font-weight: 500;
     }
     
+    .small-button {
+      padding: 4px 8px;
+      font-size: 12px;
+      height: auto;
+    }
+
     /* Сообщения */
     .empty-message {
       text-align: center;
@@ -593,6 +737,211 @@ block content
       background: #F8F8F8;
       border-radius: 8px;
       border: 1px dashed #DDD;
+    }
+
+    /* Стили для раздела заказов */
+    .stats-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #f5f5f5;
+      padding: 8px 15px;
+      border-radius: 20px;
+      font-size: 14px;
+    }
+
+    .stats-badge .total {
+      font-weight: bold;
+      color: #333;
+    }
+
+    .stats-badge .active {
+      font-weight: bold;
+      color: #28a745;
+      margin-left: 10px;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .status-badge.новый {
+      background-color: #e3f2fd;
+      color: #1976d2;
+    }
+
+    .status-badge.заказ-в-работе {
+      background-color: #fff3cd;
+      color: #856404;
+    }
+
+    .status-badge.заказ-выполнен {
+      background-color: #d4edda;
+      color: #155724; 
+    }
+
+    .status-badge.завершён {
+      background-color: #d1ecf1;
+      color: #0c5460;
+    }
+
+    .status-badge.на-согласовании-зн,
+    .status-badge.на-согласовании-акта {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+
+    .active-row {
+      background-color: #f8f9fa;
+      border-left: 4px solid #007bff;
+    }
+
+    .signatures {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+    }
+
+    .signatures.both-signed {
+      color: #28a745;
+    }
+
+    .signatures.partial-signed {
+      color: #ffc107;
+    }
+
+    .signatures.not-signed {
+      color: #dc3545;
+    }
+
+    .signatures i {
+      font-size: 14px;
+    }
+
+    .empty-message {
+      text-align: center;
+      padding: 40px 20px;
+      color: #6c757d;
+    }
+
+    .empty-message i {
+      font-size: 48px;
+      margin-bottom: 15px;
+      color: #dee2e6;
+    }
+
+    .empty-message p {
+      margin-top: 10px;
+      font-size: 16px;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    /* Стили для модальных окон */
+    .modal-window {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1000;
+    }
+
+    .modal-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-content {
+      position: relative;
+      background-color: white;
+      margin: 50px auto;
+      padding: 20px;
+      border-radius: 8px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 100vh;
+      overflow-y: auto;
+      z-index: 1001;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .modal-header h3 {
+      margin: 0;
+      font-size: 1.5rem;
+      color: white;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: #666;
+      padding: 0;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+    }
+
+    .modal-close:hover {
+      background-color: #f0f0f0;
+      color: #333;
+    }
+
+    .modal-body {
+      margin-bottom: 20px;
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      padding-top: 20px;
+      border-top: 1px solid #e0e0e0;
+    }
+
+    /* Мелкие кнопки для таблицы */
+    .small-button {
+      padding: 4px 8px;
+      font-size: 12px;
+      height: auto;
+      min-height: unset;
+    }
+
+    /* Информационный текст */
+    .info-text {
+      font-size: 0.9em;
+      color: #666;
+      margin-left: 8px;
+      font-style: italic;
     }
     
     /* Кнопки */
@@ -606,7 +955,7 @@ block content
       font-size: 16px;
       font-weight: 500;
       transition: all 0.3s ease;
-      min-width: 200px;
+      min-width: 180px;
     }
     
     .primary-button:hover {
@@ -644,6 +993,7 @@ block content
       cursor: pointer;
       font-size: 16px;
       font-weight: 500;
+      max-width: 200px;
       transition: all 0.3s ease;
     }
     

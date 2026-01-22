@@ -59,13 +59,10 @@ block content
                 else
                   .form-value= employee.specialization
               
-              .form-group
-                label(for="editid_pol") ID пользователя:
-                if can_view_employees
-                  input#editid_pol(type='number', value=employee.id_pol, name="id_pol")
-                else
-                  .form-value= employee.id_pol
-
+              // Скрытое поле для id пользователя
+              if can_view_employees
+                input(type="hidden", id="editid_pol", name="id_pol", value=employee.id_pol || '')
+              
               .form-actions
                 .buttons-row
                   if can_view_employees
@@ -74,23 +71,24 @@ block content
                   else
                     .no-permission-message У вас нет прав для редактирования профиля        
 
-        if userData
+        // Измененный блок: используем данные из employee вместо userData
+        if employee.id_pol
           .info-section
             h2.section-title Данные пользователя в системе
             
             .info-grid
               .info-item
                 .info-label ID пользователя:
-                .info-value= userData.user_id
+                .info-value= employee.id_pol
               .info-item
                 .info-label Логин:
-                .info-value= userData.login || 'Не указан'
+                .info-value= employee.user_login || 'Не указан'
               .info-item
                 .info-label Роль:
-                .info-value= userData.role || 'Не указана'
+                .info-value= employee.user_role || 'Не указана'
         else
           .info-section
-            .empty-message Данные пользователя не найдены в системе
+            .empty-message У сотрудника нет учетной записи в системе
         
         if isTeamLeader || teamInfo
           .info-section
@@ -185,7 +183,7 @@ block content
         } else {
           button.disabled = false;
           // Восстанавливаем текст в зависимости от состояния
-          if (button === editSaveButton) {
+          if (button === saveButton) {
             button.innerHTML = isEditing ? 'Сохранить изменения' : 'Редактировать профиль';
           } else {
             button.innerHTML = button.dataset.originalText || button.textContent;
@@ -214,14 +212,14 @@ block content
       // ============ ОБРАБОТКА РЕДАКТИРОВАНИЯ ============
       if (saveButton) {
         saveButton.addEventListener('click', async function() {
-          // Собираем данные из полей ввода (они всегда видны)
+          // Собираем данные из полей ввода
           const formData = {
             fio: document.getElementById('editfio').value.trim(),
             phone: document.getElementById('editphone').value.trim(),
             email: document.getElementById('editemail').value.trim(),
             position_d: document.getElementById('editposition_d').value.trim(),
             specialization: document.getElementById('editspecialization').value.trim(),
-            id_pol: document.getElementById('editid_pol').value.trim()
+            id_pol: document.getElementById('editid_pol') ? document.getElementById('editid_pol').value.trim() : ''
           };
           
           // Простая валидация
@@ -259,7 +257,7 @@ block content
             
             if (data.msg === '') {
               alert('Данные сотрудника успешно обновлены');
-              // Обновляем текст на странице (если есть)
+              // Обновляем текст на странице
               if (document.getElementById('viewFio')) {
                 document.getElementById('viewFio').textContent = formData.fio;
               }
@@ -329,7 +327,6 @@ block content
           toggleButtonLoading(confirmDeleteButton, true, 'Удаление...');
           
           try {
-            // ВАЖНО: используем правильный URL
             const response = await fetch(`/employees/delete/${employeeId}`, {
               method: 'DELETE',
               headers: {

@@ -13,12 +13,56 @@ block content
   .page-container
     h1.page-title= title
     
+    // Панель фильтрации и поиска
+    .filter-panel
+      form.filter-form(action="/employees", method="GET")
+        .filter-grid
+          .filter-group
+            label.filter-label(for="search") Поиск по ФИО:
+            .search-box
+              input.search-input(
+                type="text", 
+                id="search", 
+                name="search", 
+                placeholder="Введите ФИО...",
+                value=current_search || ''
+              )
+              button.search-button(type="submit")
+                i.fas.fa-search
+        
+          .filter-group
+            label.filter-label(for="role") Фильтр по роли:
+            select.filter-select(id="role", name="role")
+              option(value="all") Все роли
+              each role in roles
+                option(
+                  value=role, 
+                  selected=(current_role === role)
+                )= role
+        
+          .filter-actions
+            button.primary-button(type="submit") Применить
+            a.primary1-button(href="/employees") Сбросить
+    
     if can_view_employees
       .actions-panel
         button.primary-button(id='create_employee') Создать сотрудника
     
     .content-card
       if employees && employees.length > 0
+        .results-info
+          span Найдено сотрудников: #{employees.length}
+          if current_search || current_role && current_role !== 'all'
+            span.filter-tags
+              if current_search
+                .filter-tag
+                  span Поиск: "#{current_search}"
+                  a.remove-filter(href=`/employees?role=${current_role || 'all'}`) ×
+              if current_role && current_role !== 'all'
+                .filter-tag
+                  span Роль: #{current_role}
+                  a.remove-filter(href=`/employees?search=${current_search || ''}`) ×
+        
         .table-container
           table.data-table
             thead
@@ -29,7 +73,7 @@ block content
                 th Email
                 th Должность
                 th Специализация
-                th ID пользователя
+                th Роль
             tbody
               each employee in employees
                 tr
@@ -41,10 +85,15 @@ block content
                   td= employee.email
                   td= employee.position_d
                   td= employee.specialization
-                  td= employee.id_pol
+                  td
+                    .role-badge(class=employee.roleClass)= employee.user_role || '-'
       else
         .empty-state
-          p Нет сотрудников в базе данных
+          if current_search || (current_role && current_role !== 'all')
+            p Нет сотрудников, соответствующих критериям поиска
+            a.secondary-button(href="/employees") Показать всех сотрудников
+          else
+            p Нет сотрудников в базе данных
 
     // Модальное окно для создания сотрудника
     div#create_employee_popup.modal-window(style="display:none")
@@ -53,73 +102,131 @@ block content
           h3 Создать сотрудника
           button.modal-close#create_employee_popup_close ×
         .modal-body
-          form.modal-form
+          form.modal-form#createEmployeeForm
             .form-group
-              label(for="inpfio") ФИО
+              label(for="inpfio") ФИО *
               input#inpfio(type="text" placeholder="Иванов И. И.")
+            
             .form-group
-              label(for="inpphone") Телефон
+              label(for="inpphone") Телефон *
               input#inpphone(type="text" placeholder="89371234567")
+            
             .form-group
               label(for="inpemail") Email
               input#inpemail(type="email" placeholder="employee@example.com")
+            
             .form-group
-              label(for="inpposition_d") Должность
+              label(for="inpposition_d") Должность *
               input#inpposition_d(type="text" placeholder="Старший клинер")
+            
             .form-group
               label(for="inpspecialization") Специализация
               input#inpspecialization(type="text" placeholder="Клинер офисных помещений")
+            
+            .form-group
+              label(for="inplogin") Логин (для входа в систему) *
+              input#inplogin(type="text" placeholder="employee123")
+            
+            .form-group
+              label(for="inppass") Пароль *
+              input#inppass(type="password" placeholder="********")
+            
+            .form-group
+              label(for="inpid_role") Роль сотрудника *
+              select#inpid_role(name="id_role")
+                option(value="") Выберите роль
+                each role in roles
+                  option(value=role)= role
         .modal-footer
           button.secondary-button#cancel_create_employee Отменить
           button.primary-button#submit_create_employee Создать
 
+  script(src="https://code.jquery.com/jquery-3.6.0.min.js")
   script.
-    // JavaScript код остаётся без изменений
-    document.addEventListener('DOMContentLoaded', function() {
-      const createBtn = document.getElementById('create_employee');
-      const popup = document.getElementById('create_employee_popup');
-      const closeBtn = document.getElementById('create_employee_popup_close');
-      const cancelBtn = document.getElementById('cancel_create_employee');
-      const submitBtn = document.getElementById('submit_create_employee');
-      
-      if (createBtn) {
-        createBtn.addEventListener('click', function() {
-          popup.style.display = 'block';
-        });
-      }
-      
-      if (closeBtn) {
-        closeBtn.addEventListener('click', function() {
-          popup.style.display = 'none';
-          clearForm();
-        });
-      }
-      
-      if (cancelBtn) {
-        cancelBtn.addEventListener('click', function() {
-          popup.style.display = 'none';
-          clearForm();
-        });
-      }
-      
-      function clearForm() {
-        document.getElementById('inpfio').value = '';
-        document.getElementById('inpphone').value = '';
-        document.getElementById('inpemail').value = '';
-        document.getElementById('inpposition_d').value = '';
-        document.getElementById('inpspecialization').value = '';
-      }
-      
-      window.addEventListener('click', function(event) {
-        if (event.target === popup) {
-          popup.style.display = 'none';
-          clearForm();
+    $(document).ready(function(){
+        $('#create_employee').click(function(e){
+            $('#create_employee_popup').show()
+        })
+
+        $('#create_employee_popup_close').click(function(e){
+            $('#create_employee_popup').hide()
+            clearForm()
+        })
+
+        $('#cancel_create_employee').click(function(e){
+            $('#create_employee_popup').hide()
+            clearForm()
+        })
+
+        function clearForm() {
+            $('#inpfio').val('')
+            $('#inpphone').val('')
+            $('#inpemail').val('')
+            $('#inpposition_d').val('')
+            $('#inpspecialization').val('')
+            $('#inplogin').val('')
+            $('#inppass').val('')
+            $('#inpid_role').val('')
         }
-      });
+
+        $('#submit_create_employee').click(function(e){
+            e.preventDefault()
+
+            let data = {
+                fio: $('#inpfio').val(),
+                phone: $('#inpphone').val(),
+                email: $('#inpemail').val(),
+                position_d: $('#inpposition_d').val(),
+                specialization: $('#inpspecialization').val(),
+                login: $('#inplogin').val(),
+                pass: $('#inppass').val(),
+                id_role: $('#inpid_role').val()
+            };
+
+            // Валидация
+            if (!data.fio || !data.phone || !data.position_d || !data.login || !data.pass || !data.id_role) {
+                alert('Пожалуйста, заполните все обязательные поля (ФИО, телефон, должность, логин, пароль и роль)');
+                return;
+            }
+
+            $.ajax({
+                type: 'POST',
+                data: JSON.stringify(data),
+                contentType: 'application/json',
+                url: '/employees/create',
+                dataType: 'JSON'
+            }).done(function( response ) {
+                if (response.msg === '') {
+                    alert('Сотрудник создан')
+                    window.location.reload()
+                }
+                else {
+                    alert(response.msg)
+                }
+            }).fail(function(xhr, status, error) {
+                console.error('Error:', error);
+                alert('Ошибка при создании сотрудника: ' + error);
+            });
+        });
+
+        window.addEventListener('click', function(event) {
+            const popup = document.getElementById('create_employee_popup');
+            if (event.target === popup) {
+                popup.style.display = 'none';
+                clearForm();
+            }
+        });
+        
+        // Автосабмит при изменении селекта роли
+        $('#role').change(function() {
+            if ($(this).val() !== 'all') {
+                $('.filter-form').submit();
+            }
+        });
     });
 
+
   style.
-    /* Общие стили */
     .page-container {
       max-width: 1400px;
       margin: 0 auto;
@@ -145,6 +252,34 @@ block content
       margin-bottom: 25px;
     }
     
+    .user-type-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 500;
+      margin-left: 15px;
+      vertical-align: middle;
+    }
+
+    .badge-employee {
+      background-color: #e3f2fd;
+      color: #1976d2;
+      border: 1px solid #bbdefb;
+    }
+
+    .badge-client {
+      background-color: #f3e5f5;
+      color: #7b1fa2;
+      border: 1px solid #e1bee7;
+    }
+
+    .badge-user {
+      background-color: #f5f5f5;
+      color: #616161;
+      border: 1px solid #e0e0e0;
+    }
+
     /* Кнопки */
     .primary-button {
       background-color: #6C5FBC;
@@ -164,6 +299,24 @@ block content
       box-shadow: 0 6px 15px rgba(108, 95, 188, 0.3);
     }
     
+    .primary1-button {
+      background-color: #6C5FBC;
+      color: white;
+      padding: 9px 28px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+    }
+    
+    .primary1-button:hover {
+      background-color: #5C4EAE;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 15px rgba(108, 95, 188, 0.3);
+    }
+
     .secondary-button {
       background-color: #6C5FBC;
       color: #333;
@@ -326,6 +479,213 @@ block content
       justify-content: flex-end;
       gap: 15px;
     }
+
+        .filter-panel {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      border: 1px solid #e9ecef;
+    }
+    
+    .filter-form {
+      display: block;
+    }
+    
+    .filter-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 15px;
+      align-items: end;
+    }
+    
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .filter-label {
+      font-weight: 500;
+      margin-bottom: 5px;
+      color: #495057;
+      font-size: 14px;
+    }
+    
+    .search-box {
+      position: relative;
+    }
+    
+    .search-input {
+      width: 100%;
+      padding: 8px 40px 8px 12px;
+      border: 1px solid #ced4da;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    
+    .search-button {
+      position: absolute;
+      right: 0;
+      top: 0;
+      height: 100%;
+      width: 40px;
+      background: transparent;
+      border: none;
+      color: #6c757d;
+      cursor: pointer;
+    }
+    
+    .search-button:hover {
+      color: #007bff;
+    }
+    
+    .filter-select {
+      padding: 8px 12px;
+      border: 1px solid #ced4da;
+      border-radius: 4px;
+      font-size: 14px;
+      background: white;
+    }
+    
+    .filter-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    
+    .results-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      padding: 10px 0;
+      border-bottom: 1px solid #e9ecef;
+    }
+    
+    .filter-tags {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .filter-tag {
+      background: #e3f2fd;
+      border: 1px solid #bbdefb;
+      border-radius: 16px;
+      padding: 4px 12px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .remove-filter {
+      color: #666;
+      text-decoration: none;
+      font-size: 16px;
+      line-height: 1;
+      cursor: pointer;
+    }
+    
+    .remove-filter:hover {
+      color: #dc3545;
+    }
+    
+    /* Стили для таблицы */
+    .user-type-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+      text-align: center;
+      min-width: 80px;
+    }
+    
+    .badge-employee {
+      background-color: #e3f2fd;
+      color: #1976d2;
+      border: 1px solid #bbdefb;
+    }
+    
+    .badge-client {
+      background-color: #f3e5f5;
+      color: #7b1fa2;
+      border: 1px solid #e1bee7;
+    }
+    
+    .badge-user {
+      background-color: #f5f5f5;
+      color: #616161;
+      border: 1px solid #e0e0e0;
+    }
+    
+    .role-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+      text-align: center;
+      min-width: 100px;
+    }
+    
+    .role-admin {
+      background-color: #ffebee;
+      color: #c62828;
+      border: 1px solid #ffcdd2;
+    }
+    
+    .role-manager {
+      background-color: #fff3e0;
+      color: #ef6c00;
+      border: 1px solid #ffe0b2;
+    }
+    
+    .role-taskmaster {
+      background-color: #e8f5e9;
+      color: #2e7d32;
+      border: 1px solid #c8e6c9;
+    }
+    
+    .role-cleaner {
+      background-color: #e3f2fd;
+      color: #1565c0;
+      border: 1px solid #bbdefb;
+    }
+    
+    .role-client {
+      background-color: #f3e5f5;
+      color: #7b1fa2;
+      border: 1px solid #e1bee7;
+    }
+    
+    .role-default {
+      background-color: #f5f5f5;
+      color: #616161;
+      border: 1px solid #e0e0e0;
+    }
+
+    .form-group select{
+      padding: 14px 16px;
+      border: 2px solid #EAEAEA;
+      border-radius: 8px;
+      font-size: 16px;
+      max-width: 820px;
+      background: #FFFFFF;
+      transition: all 0.3s ease;
+    }
+    
+    .form-group select:focus {
+      outline: none;
+      border-color: #6C5FBC;
+      box-shadow: 0 0 0 3px rgba(108, 95, 188, 0.1);
+    }
+    
+    .form-group select:disabled {
+      background-color: #F8F8F8;
+      color: #666;
+      cursor: not-allowed;
+    }  
 
     /* Форма */
     .modal-form {

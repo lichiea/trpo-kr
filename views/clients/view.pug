@@ -2,7 +2,6 @@ extends ../layout
 
 block content
 
-  // Первое навигационное поле
   header.header
     .container
       .header-content
@@ -34,33 +33,27 @@ block content
               .form-group
                 label(for="editphone") Телефон:
                 if can_view_clients
-                  input#editphone(type='number', value=client.phone, name="phone")
+                  input#editphone(type='text', value=client.phone, name="phone")
                 else
                   .form-value= client.phone
               
               .form-group
                 label(for="editemail") Email:
                 if can_view_clients
-                  input#editemail(type='email', value=client.email, name="email")
+                  input#editemail(type='email', value=client.email || '', name="email")
                 else
-                  .form-value= client.email
+                  .form-value= client.email || 'Нет'
               
               .form-group
                 label(for="edittype_l") Тип лица:
                 if can_view_clients
                   select#edittype_l(name="type_l")
+                    option(value="") Выберите тип
                     option(value="Физическое лицо" selected=client.type_l === "Физическое лицо") Физическое лицо
                     option(value="Юридическое лицо" selected=client.type_l === "Юридическое лицо") Юридическое лицо
                 else
                   .form-value= client.type_l
               
-              .form-group
-                label(for="editid_pol") ID пользователя:
-                if can_view_clients
-                  input#editid_pol(type='number', value=client.id_pol, name="id_pol")
-                else
-                  .form-value= client.id_pol
-
               .form-actions
                 .buttons-row
                   if can_view_clients
@@ -85,31 +78,38 @@ block content
                 .info-value= userData.role || 'Не указана'
         else
           .info-section
-            .empty-message Данные пользователя не найдены в системе
+            .info-card
+              .empty-message Данные пользователя не найдены в системе
         
-        if cleanObjects && cleanObjects.length > 0
-          .info-section
-            h2.section-title Объекты клининга
-            
+        .info-section
+          h2.section-title Объекты клининга
+          
+          if can_view_clients
+            .object-actions
+              button.primary-button#addObjectButton Добавить объект
+          
+          if cleanObjects && cleanObjects.length > 0
             .table-container
               table.data-table
                 thead
                   tr 
-                    th ID
                     th Тип объекта
                     th Адрес
                     th Площадь (м²)
                     th Описание
+                    th Действия
                 tbody
                   each obj in cleanObjects
                     tr
-                      td= obj.id
                       td= obj.type_co
                       td= obj.address
                       td= obj.squaremeterage
-                      td= obj.description
-        else
-          .info-section
+                      td= obj.description || 'Нет'
+                      td
+                        .action-buttons
+                          button.edit-object-btn(data-id=obj.id, data-type=obj.type_co, data-address=obj.address, data-squaremeterage=obj.squaremeterage, data-description=obj.description || '', data-floorplan=obj.floorplan || '') Редактировать
+                          button.delete-object-btn(data-id=obj.id) Удалить
+          else
             .info-card
               .empty-message У клиента нет объектов клининга
 
@@ -130,220 +130,102 @@ block content
           button.secondary-button#cancelDelete Отмена
           button.danger-button#confirmDelete Удалить
 
-  script.
-    document.addEventListener('DOMContentLoaded', function() {
-      const saveButton = document.getElementById('editSaveButton');
-      const deleteButton = document.getElementById('deleteButton');
-      const deleteModal = document.getElementById('deleteConfirmModal');
-      const deleteModalClose = document.getElementById('deleteModalClose');
-      const cancelDeleteButton = document.getElementById('cancelDelete');
-      const confirmDeleteButton = document.getElementById('confirmDelete');
-      
-      const pathSegments = window.location.pathname.split('/');
-      const clientId = pathSegments[pathSegments.length - 1];
-      
-      function closeDeleteModal() {
-        if (deleteModal) {
-          deleteModal.style.display = 'none';
-          document.body.style.overflow = 'auto';
-        }
-      }
-      
-      // Обработка сохранения изменений
-      if (saveButton) {
-        saveButton.addEventListener('click', async function() {
-          const formData = {
-            fio: document.getElementById('editfio').value.trim(),
-            phone: document.getElementById('editphone').value.trim(),
-            email: document.getElementById('editemail').value.trim(),
-            type_l: document.getElementById('edittype_l').value,
-            id_pol: document.getElementById('editid_pol').value.trim()
-          };
-          
-          if (!formData.fio || !formData.phone || !formData.type_l) {
-            alert('Заполните ФИО, телефон и тип лица');
-            return;
-          }
-          
-          if (formData.id_pol && formData.id_pol !== '') {
-            formData.id_pol = parseInt(formData.id_pol);
-            if (isNaN(formData.id_pol)) {
-              alert('ID пользователя должно быть числом');
-              return;
-            }
-          } else {
-            formData.id_pol = null;
-          }
-          
-          saveButton.disabled = true;
-          saveButton.textContent = 'Сохранение...';
-          
-          try {
-            const response = await fetch(`/clients/update/${clientId}`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(formData)
-            });
-            
-            const data = await response.json();
-            
-            if (data.msg === '') {
-              alert('Данные клиента успешно обновлены');
-            } else {
-              alert('Ошибка: ' + data.msg);
-            }
-            
-          } catch (error) {
-            console.error('Error:', error);
-            alert('Ошибка при обновлении данных');
-          } finally {
-            saveButton.disabled = false;
-            saveButton.textContent = 'Сохранить изменения';
-          }
-        });
-      }
-      
-      // Обработка удаления
-      if (deleteButton) {
-        deleteButton.addEventListener('click', function() {
-          if (deleteModal) {
-            deleteModal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
-          }
-        });
-      }
-      
-      if (deleteModalClose) {
-        deleteModalClose.addEventListener('click', closeDeleteModal);
-      }
-      
-      if (cancelDeleteButton) {
-        cancelDeleteButton.addEventListener('click', closeDeleteModal);
-      }
-      
-      if (deleteModal) {
-        deleteModal.addEventListener('click', function(event) {
-          if (event.target === deleteModal) {
-            closeDeleteModal();
-          }
-        });
-      }
-      
-      document.addEventListener('keydown', function(event) {
-        if (event.key === 'Escape' && deleteModal && deleteModal.style.display === 'flex') {
-          closeDeleteModal();
-        }
-      });
-      
-      if (confirmDeleteButton) {
-        confirmDeleteButton.addEventListener('click', async function() {
-          confirmDeleteButton.disabled = true;
-          confirmDeleteButton.textContent = 'Удаление...';
-          
-          try {
-            const response = await fetch(`/clients/delete/${clientId}`, {
-              method: 'DELETE',
-              headers: {
-                'Content-Type': 'application/json',
-              }
-            });
-            
-            const data = await response.json();
-            
-            if (data.msg === '') {
-              alert('Клиент успешно удалён');
-              window.location.href = '/clients';
-            } else {
-              alert('Ошибка: ' + data.msg);
-              closeDeleteModal();
-            }
-            
-          } catch (error) {
-            console.error('Error:', error);
-            alert('Ошибка при удалении клиента');
-          } finally {
-            confirmDeleteButton.disabled = false;
-            confirmDeleteButton.textContent = 'Удалить';
-          }
-        });
-      }
-    });
+    #objectModal.modal-window(style="display: none;")
+      .modal-content
+        .modal-header
+          h3#objectModalTitle Добавить объект
+          button.modal-close#objectModalClose ×
+        .modal-body
+          form#objectForm.modal-form
+            input#objectId(type="hidden", value="")
+            .form-group
+              label(for="objectType") Тип объекта *
+              select#objectType(name="type_co", required)
+                option(value="") Выберите тип
+                each type in clean_object_types
+                  option(value=type)= type
+            .form-group
+              label(for="objectAddress") Адрес *
+              input#objectAddress(type="text", name="address", required)
+            .form-group
+              label(for="objectSquareMeterage") Площадь (м²) *
+              input#objectSquareMeterage(type="number", name="squaremeterage", required)
+            .form-group
+              label(for="objectDescription") Описание
+              textarea#objectDescription(name="description", rows="3")
+            .form-group
+              label(for="objectFloorPlan") План этажа
+              input#objectFloorPlan(type="text", name="floorplan")
+        .modal-footer
+          button.secondary-button#cancelObjectForm Отмена
+          button.primary-button#submitObjectForm Сохранить
 
   style.
     /* Общие стили */
     .page-container {
-      max-width: 1200px;
+      max-width: 1400px;
       margin: 0 auto;
       padding: 30px 20px;
-    }
-    
-    .content-card {
-      background: #FFFFFF;
-      border-radius: 12px;
-      padding: 40px;
-      box-shadow: 0 4px 20px rgba(92, 78, 174, 0.1);
     }
     
     .page-title {
       font-size: 32px;
       color: #5C4EAE;
-      margin: 0;
+      margin-bottom: 30px;
       font-weight: 600;
     }
     
-    /* Навигационные ссылки */
-    .navigation-links {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 25px;
+    .content-card {
+      background: #FFFFFF;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 4px 20px rgba(92, 78, 174, 0.1);
     }
     
-    .back-link, .home-link {
+    /* Навигация */
+    .navigation-links {
+      margin-bottom: 20px;
+    }
+    
+    .back-link {
       color: #6C5FBC;
       text-decoration: none;
       font-size: 16px;
-      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
       transition: color 0.3s ease;
     }
     
-    .back-link:hover, .home-link:hover {
+    .back-link:hover {
       color: #5C4EAE;
       text-decoration: underline;
     }
     
-    /* Шапка профиля */
-    .profile-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 40px;
-      padding-bottom: 25px;
-      border-bottom: 2px solid #EAEAEA;
-    }
-    
-    /* Секции */
+    /* Заголовки секций */
     .section-title {
       font-size: 24px;
       color: #5C4EAE;
       margin-bottom: 25px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #6C5FBC;
       font-weight: 600;
     }
     
-    .form-section, .info-section {
+    /* Форма профиля */
+    .profile-form {
       margin-bottom: 40px;
     }
     
-    /* Форма */
-    .profile-form {
+    .form-section {
       margin-bottom: 40px;
     }
     
     .form-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
       gap: 25px;
+      margin-bottom: 30px;
     }
     
     .form-group {
@@ -355,173 +237,56 @@ block content
     .form-group label {
       font-weight: 600;
       color: #333;
-      font-size: 16px;
+      font-size: 15px;
     }
     
-    .form-group input {
-      padding: 14px 16px;
+    .form-group input,
+    .form-group select {
+      padding: 12px 16px;
       border: 2px solid #EAEAEA;
       border-radius: 8px;
-      font-size: 16px;
-      background: #FFFFFF;
+      font-size: 15px;
       transition: all 0.3s ease;
+      background: #FFFFFF;
     }
     
-    .form-group input:focus {
+    .form-group input:focus,
+    .form-group select:focus {
       outline: none;
       border-color: #6C5FBC;
       box-shadow: 0 0 0 3px rgba(108, 95, 188, 0.1);
     }
     
-    .form-group input:disabled {
+    .form-group input:disabled,
+    .form-group select:disabled {
       background-color: #F8F8F8;
       color: #666;
       cursor: not-allowed;
     }
     
     .form-value {
-      padding: 14px 0;
-      font-size: 16px;
-      color: #333;
-      border-bottom: 1px solid #EAEAEA;
-    }
-    
-    .form-actions {
-      margin-top: 30px;
-      padding-top: 25px;
-      border-top: 2px solid #EAEAEA;
-    }
-    
-    .buttons-row {
-      display: flex;
-      gap: 20px;
-      justify-content: flex-start;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
-    /* Информационные карточки */
-    .info-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: 20px;
-    }
-    
-    .info-item {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      padding: 15px;
-      background: #F8F8F8;
+      padding: 12px;
+      background-color: #f9f9f9;
       border-radius: 8px;
-      border-left: 4px solid #6C5FBC;
-    }
-    
-    .info-label {
-      font-weight: 600;
-      color: #5C4EAE;
-      font-size: 14px;
-    }
-    
-    .info-value {
+      border: 1px solid #EAEAEA;
       color: #333;
-      font-size: 16px;
-    }
-    
-    /* Карточки бригады */
-    .info-card {
-      background: #FFFFFF;
-      border-radius: 12px;
-      padding: 25px;
-      border: 2px solid #EAEAEA;
-      display: flex;
-      align-items: flex-start;
-      gap: 20px;
-    }
-    
-    .team-leader-card {
-      border-color: #FFD700;
-      background: linear-gradient(135deg, #FFF9E6 0%, #FFF0B3 100%);
-    }
-    
-    .team-member-card {
-      border-color: #6C5FBC;
-      background: linear-gradient(135deg, #F5F3FF 0%, #E6E1FF 100%);
-    }
-    
-    .info-icon {
-      font-size: 32px;
-      background: white;
-      width: 60px;
-      height: 60px;
-      border-radius: 50%;
+      min-height: 46px;
       display: flex;
       align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    }
-    
-    .info-content {
-      flex: 1;
-    }
-    
-    .info-card h3 {
-      font-size: 20px;
-      color: #5C4EAE;
-      margin: 0 0 15px 0;
-      font-weight: 600;
-    }
-    
-    .info-details {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    
-    .detail {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    
-    .detail-label {
-      font-weight: 600;
-      color: #666;
-      font-size: 15px;
-      min-width: 120px;
-    }
-    
-    .detail-value {
-      color: #333;
-      font-size: 16px;
-      font-weight: 500;
-    }
-    
-    /* Сообщения */
-    .empty-message {
-      text-align: center;
-      padding: 40px 20px;
-      color: #666;
-      font-size: 18px;
-      font-style: italic;
-      background: #F8F8F8;
-      border-radius: 8px;
-      border: 1px dashed #DDD;
     }
     
     /* Кнопки */
     .primary-button {
       background-color: #6C5FBC;
       color: white;
-      padding: 14px 32px;
+      padding: 12px 28px;
       border: none;
       border-radius: 8px;
       cursor: pointer;
+      max-width: 180px;
       font-size: 16px;
       font-weight: 500;
       transition: all 0.3s ease;
-      min-width: 200px;
     }
     
     .primary-button:hover {
@@ -530,28 +295,8 @@ block content
       box-shadow: 0 6px 15px rgba(108, 95, 188, 0.3);
     }
     
-    .primary-button.save-button {
-      background-color: #4CAF50; /* Зелёный для сохранения */
-    }
-    
-    .primary-button.save-button:hover {
-      background-color: #45a049;
-      box-shadow: 0 6px 15px rgba(76, 175, 80, 0.3);
-    }
-
-    .no-permission-message {
-      color: #666;
-      font-style: italic;
-      padding: 15px;
-      text-align: center;
-      background-color: #f5f5f5;
-      border-radius: 8px;
-      border: 1px solid #ddd;
-    }
-
     .secondary-button {
-      background-color: #EAEAEA;
-      top: -100px;
+      background-color: #f0f0f0;
       color: #333;
       padding: 12px 28px;
       border: none;
@@ -566,34 +311,187 @@ block content
       background-color: #DDD;
       transform: translateY(-2px);
     }
-
-    .buttons-container {
+    
+    .danger-button {
+      background-color: #f44336;
+      color: white;
+      padding: 12px 28px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      max-width: 280px;
+      font-size: 16px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+    }
+    
+    .danger-button:hover {
+      background-color: #d32f2f;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 15px rgba(244, 67, 54, 0.3);
+    }
+    
+    .form-actions {
+      margin-top: 30px;
+    }
+    
+    .buttons-row {
       display: flex;
       gap: 15px;
       flex-wrap: wrap;
     }
     
-    .danger-button {
-      background-color: #dc3545;
-      color: white;
-      padding: 14px 32px;
-      border: none;
+    .no-permission-message {
+      padding: 20px;
+      background-color: #fff3cd;
+      border: 1px solid #ffeaa7;
       border-radius: 8px;
-      cursor: pointer;
+      color: #856404;
+      text-align: center;
+    }
+    
+    /* Информационные секции */
+    .info-section {
+      margin-top: 40px;
+      padding-top: 30px;
+      border-top: 1px solid #EAEAEA;
+    }
+    
+    .info-card {
+      background: #f9f9f9;
+      border-radius: 8px;
+      padding: 30px;
+      text-align: center;
+    }
+    
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    
+    .info-item {
+      background: #f9f9f9;
+      padding: 15px;
+      border-radius: 8px;
+      border: 1px solid #EAEAEA;
+    }
+    
+    .info-label {
+      font-weight: 600;
+      color: #5C4EAE;
+      margin-bottom: 5px;
+      font-size: 14px;
+    }
+    
+    .info-value {
+      color: #333;
       font-size: 16px;
+    }
+    
+    .empty-message {
+      color: #666;
+      font-size: 16px;
+      text-align: center;
+    }
+    
+    /* Действия с объектами */
+    .object-actions {
+      margin-bottom: 20px;
+    }
+    
+    .action-buttons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    
+    .edit-object-btn,
+    .delete-object-btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
       font-weight: 500;
       transition: all 0.3s ease;
-      min-width: 200px;
     }
     
-    .danger-button:hover {
-      background-color: #c82333;
+    .edit-object-btn {
+      background-color: #4CAF50;
+      color: white;
+    }
+    
+    .edit-object-btn:hover {
+      background-color: #45a049;
       transform: translateY(-2px);
-      box-shadow: 0 6px 15px rgba(220, 53, 69, 0.3);
     }
     
-    /* Модальное окно удаления */
-    #deleteConfirmModal {
+    .delete-object-btn {
+      background-color: #f44336;
+      color: white;
+    }
+    
+    .delete-object-btn:hover {
+      background-color: #d32f2f;
+      transform: translateY(-2px);
+    }
+    
+    /* Таблица */
+    .table-container {
+      overflow-x: auto;
+      border-radius: 8px;
+      border: 1px solid #5C4EAE;
+      color: #6C5FBC;
+      margin-top: 15px;
+    }
+    
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    
+    .data-table thead {
+      background-color: #5C4EAE;
+      color: black;
+    }
+    
+    .data-table th {
+      padding: 18px 20px;
+      text-align: left;
+      font-weight: 600;
+      color: black;
+      font-size: 16px;
+      border-bottom: 2px solid #4A3E9C;
+    }
+    
+    .data-table tbody tr:nth-child(odd) td {
+      background-color: #FFFFFF;
+    }
+    
+    .data-table tbody tr:nth-child(even) td {
+      background-color: #F8F8F8;
+    }
+    
+    .data-table td {
+      padding: 16px 20px;
+      border-bottom: 1px solid #DDD;
+      color: #000000;
+      font-size: 15px;
+      vertical-align: middle;
+    }
+    
+    .data-table tbody tr:hover {
+      background-color: rgba(108, 95, 188, 0.05);
+    }
+    
+    .data-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+    
+    /* Модальные окна */
+    .modal-window {
       position: fixed;
       top: 0;
       left: 0;
@@ -606,31 +504,36 @@ block content
       z-index: 1000;
     }
     
-    #deleteConfirmModal .modal-content {
-      background: #FFFFFF;
-      border-radius: 12px;
-      width: 500px;
-      max-width: 90%;
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    .modal-content {
+      width: 800px !important;
+      max-width: 95vw !important;
+      background: #FFFFFF !important;
+      border-radius: 12px !important;
+      max-height: 90vh !important;
+      overflow-y: auto !important;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2) !important;
     }
     
-    #deleteConfirmModal .modal-header {
+    .modal-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       padding: 25px 30px;
-      border-bottom: 1px solid #EAEAEA;
-      background-color: #dc3545;
+      border-bottom: 1px solid #6C5FBC;
+      background-color: #5C4EAE;
       border-radius: 12px 12px 0 0;
+      position: sticky;
+      top: 0;
+      z-index: 10;
     }
     
-    #deleteConfirmModal .modal-header h3 {
+    .modal-header h3 {
       color: white;
       margin: 0;
       font-size: 22px;
     }
     
-    #deleteConfirmModal .modal-close {
+    .modal-close {
       background: none;
       border: none;
       color: white;
@@ -646,137 +549,260 @@ block content
       transition: background-color 0.3s ease;
     }
     
-    #deleteConfirmModal .modal-close:hover {
+    .modal-close:hover {
       background-color: rgba(255, 255, 255, 0.2);
     }
     
-    #deleteConfirmModal .modal-body {
-      padding: 30px;
+    .modal-body {
+      padding: 30px !important;
     }
     
-    #deleteConfirmModal .modal-footer {
+    .modal-footer {
       padding: 20px 30px;
-      border-top: 1px solid #EAEAEA;
+      border-top: 1px solid #6C5FBC;
       display: flex;
       justify-content: flex-end;
       gap: 15px;
     }
     
-    .warning-message {
+    .modal-form {
       display: flex;
-      align-items: flex-start;
+      flex-direction: column;
       gap: 20px;
     }
     
+    .modal-form textarea {
+      padding: 12px 16px;
+      border: 2px solid #EAEAEA;
+      border-radius: 8px;
+      font-size: 15px;
+      resize: vertical;
+      min-height: 80px;
+      font-family: inherit;
+    }
+    
+    .modal-form textarea:focus {
+      outline: none;
+      border-color: #6C5FBC;
+      box-shadow: 0 0 0 3px rgba(108, 95, 188, 0.1);
+    }
+    
+    /* Сообщения с предупреждениями */
+    .warning-message {
+      display: flex;
+      align-items: flex-start;
+      gap: 15px;
+      padding: 20px;
+      background-color: #fff3cd;
+      border: 1px solid #ffeaa7;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    
     .warning-icon {
-      font-size: 40px;
-      flex-shrink: 0;
+      font-size: 24px;
     }
     
     .warning-text h4 {
-      margin: 0 0 10px 0;
-      color: #dc3545;
-      font-size: 18px;
+      margin-top: 0;
+      color: #856404;
+      margin-bottom: 10px;
     }
     
     .warning-text p {
-      margin: 8px 0;
+      margin: 5px 0;
       color: #333;
     }
-    
-    .warning-text strong {
-      color: #dc3545;
-      font-size: 17px;
-    }
-    
-    @media (max-width: 768px) {
-      .buttons-container {
-        flex-direction: column;
-      }
-      
-      .primary-button,
-      .danger-button {
-        width: 100%;
-      }
-      
-      .warning-message {
-        flex-direction: column;
-        text-align: center;
-      }
-    }
 
-    .loading-spinner {
-      display: inline-block;
-      width: 16px;
-      height: 16px;
-      border: 2px solid rgba(255,255,255,.3);
-      border-radius: 50%;
-      border-top-color: #fff;
-      animation: spin 1s ease-in-out infinite;
-      margin-right: 8px;
-      vertical-align: middle;
-    }
-    
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-    /* Блокировка прокрутки при открытом модальном окне */
-    body {
-      transition: overflow 0.3s ease;
-    }
-    
-    /* Адаптивность */
-    @media (max-width: 1024px) {
-      .content-card {
-        padding: 30px;
-      }
+  script(src="https://code.jquery.com/jquery-3.6.0.min.js")
+  script.
+    $(document).ready(function() {
+      const clientId = window.location.pathname.split('/').pop();
+      let currentObjectId = null;
+
+      // Сохранение изменений клиента
+      $('#editSaveButton').click(function(e) {
+        e.preventDefault();
+        
+        const formData = {
+          fio: $('#editfio').val(),
+          phone: $('#editphone').val(),
+          email: $('#editemail').val(),
+          type_l: $('#edittype_l').val(),
+          id_pol: $('#editid_pol').val()
+        };
+        
+        if (!formData.fio || !formData.phone || !formData.type_l) {
+          alert('Заполните ФИО, телефон и тип лица');
+          return;
+        }
+        
+        if (formData.id_pol === '') {
+          formData.id_pol = null;
+        }
+        
+        const button = $(this);
+        button.prop('disabled', true).text('Сохранение...');
+        
+        $.ajax({
+          type: 'POST',
+          data: JSON.stringify(formData),
+          contentType: 'application/json',
+          url: '/clients/update/' + clientId,
+          dataType: 'JSON'
+        }).done(function(response) {
+          if (response.msg === '') {
+            alert('Данные клиента успешно обновлены');
+            window.location.reload();
+          } else {
+            alert('Ошибка: ' + response.msg);
+          }
+        }).fail(function(xhr, status, error) {
+          console.error('Error:', error);
+          alert('Ошибка при обновлении данных');
+        }).always(function() {
+          button.prop('disabled', false).text('Сохранить изменения');
+        });
+      });
       
-      .form-grid {
-        grid-template-columns: 1fr;
-        gap: 20px;
-      }
-    }
-    
-    @media (max-width: 768px) {
-      .page-container {
-        padding: 20px 15px;
-      }
+      // Удаление клиента
+      $('#deleteButton').click(function() {
+        $('#deleteConfirmModal').show();
+      });
       
-      .content-card {
-        padding: 25px 20px;
-      }
+      $('#deleteModalClose, #cancelDelete').click(function() {
+        $('#deleteConfirmModal').hide();
+      });
       
-      .profile-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 20px;
-      }
+      $('#confirmDelete').click(function() {
+        const button = $(this);
+        button.prop('disabled', true).text('Удаление...');
+        
+        $.ajax({
+          type: 'DELETE',
+          contentType: 'application/json',
+          url: '/clients/delete/' + clientId,
+          dataType: 'JSON'
+        }).done(function(response) {
+          if (response.msg === '') {
+            alert('Клиент успешно удалён');
+            window.location.href = '/clients';
+          } else {
+            alert('Ошибка: ' + response.msg);
+            $('#deleteConfirmModal').hide();
+          }
+        }).fail(function(xhr, status, error) {
+          console.error('Error:', error);
+          alert('Ошибка при удалении клиента');
+        }).always(function() {
+          button.prop('disabled', false).text('Удалить');
+        });
+      });
       
-      .page-title {
-        font-size: 28px;
-      }
+      // Объекты клининга
+      $('#addObjectButton').click(function() {
+        $('#objectModalTitle').text('Добавить объект');
+        $('#objectForm')[0].reset();
+        $('#objectId').val('');
+        currentObjectId = null;
+        $('#objectModal').show();
+      });
       
-      .section-title {
-        font-size: 22px;
-      }
+      // Редактирование объекта
+      $(document).on('click', '.edit-object-btn', function() {
+        const objectId = $(this).data('id');
+        currentObjectId = objectId;
+        
+        $('#objectModalTitle').text('Редактировать объект');
+        $('#objectId').val(objectId);
+        $('#objectType').val($(this).data('type'));
+        $('#objectAddress').val($(this).data('address'));
+        $('#objectSquareMeterage').val($(this).data('squaremeterage'));
+        $('#objectDescription').val($(this).data('description'));
+        $('#objectFloorPlan').val($(this).data('floorplan'));
+        
+        $('#objectModal').show();
+      });
       
-      .navigation-links {
-        flex-direction: column;
-        gap: 15px;
-      }
+      // Удаление объекта
+      $(document).on('click', '.delete-object-btn', function() {
+        const objectId = $(this).data('id');
+        const objectAddress = $(this).closest('tr').find('td:nth-child(3)').text();
+        
+        if (confirm('Вы уверены, что хотите удалить объект по адресу "' + objectAddress + '"?')) {
+          $.ajax({
+            type: 'DELETE',
+            contentType: 'application/json',
+            url: '/clients/' + clientId + '/clean-objects/' + objectId,
+            dataType: 'JSON'
+          }).done(function(response) {
+            if (response.msg === '') {
+              alert('Объект успешно удалён');
+              window.location.reload();
+            } else {
+              alert('Ошибка: ' + response.msg);
+            }
+          }).fail(function(xhr, status, error) {
+            console.error('Error:', error);
+            alert('Ошибка при удалении объекта');
+          });
+        }
+      });
       
-      .info-card {
-        flex-direction: column;
-        text-align: center;
-      }
+      // Закрытие модального окна объекта
+      $('#objectModalClose, #cancelObjectForm').click(function() {
+        $('#objectModal').hide();
+      });
       
-      .info-icon {
-        align-self: center;
-      }
+      // Сохранение объекта
+      $('#submitObjectForm').click(function(e) {
+        e.preventDefault();
+        
+        const objectData = {
+          type_co: $('#objectType').val(),
+          address: $('#objectAddress').val(),
+          squaremeterage: $('#objectSquareMeterage').val(),
+          description: $('#objectDescription').val(),
+          floorplan: $('#objectFloorPlan').val()
+        };
+        
+        if (!objectData.type_co || !objectData.address || !objectData.squaremeterage) {
+          alert('Заполните тип объекта, адрес и площадь');
+          return;
+        }
+        
+        const button = $(this);
+        button.prop('disabled', true).text('Сохранение...');
+        
+        const url = currentObjectId 
+          ? '/clients/' + clientId + '/clean-objects/' + currentObjectId
+          : '/clients/' + clientId + '/clean-objects';
+        
+        $.ajax({
+          type: 'POST',
+          data: JSON.stringify(objectData),
+          contentType: 'application/json',
+          url: url,
+          dataType: 'JSON'
+        }).done(function(response) {
+          if (response.msg === '') {
+            alert('Объект успешно сохранён');
+            window.location.reload();
+          } else {
+            alert('Ошибка: ' + response.msg);
+          }
+        }).fail(function(xhr, status, error) {
+          console.error('Error:', error);
+          alert('Ошибка при сохранении объекта');
+        }).always(function() {
+          button.prop('disabled', false).text('Сохранить');
+        });
+      });
       
-      .detail {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 5px;
-      }
-    }
+      // Закрытие модальных окон при клике вне их
+      $(window).click(function(event) {
+        if ($(event.target).hasClass('modal-window')) {
+          $(event.target).hide();
+        }
+      });
+    });

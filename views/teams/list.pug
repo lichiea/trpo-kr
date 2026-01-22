@@ -25,8 +25,7 @@ block content
               tr 
                 th ID
                 th Бригадир
-                th Должность бригадира
-                th Количество сотрудников
+                th Количество клинеров
             tbody
               each team in teams
                 tr
@@ -37,7 +36,6 @@ block content
                       a(href='/employees/' + team.id_taskmaster)= team.taskmaster_fio
                     else
                       | Не назначен
-                  td= team.taskmaster_position || 'Не указана'
                   td= team.members_count
       else
         .empty-state
@@ -52,7 +50,7 @@ block content
         .modal-body
           form.modal-form
             .form-group
-              label(for="inpTaskmaster") Бригадир
+              label(for="inpTaskmaster") Бригадир (пользователь с ролью "Бригадир")
               select#inpTaskmaster
                 option(value="") Выберите бригадира
                 // Опции будут заполнены через JavaScript
@@ -69,26 +67,26 @@ block content
       const submitBtn = document.getElementById('submit_create_team');
       const taskmasterSelect = document.getElementById('inpTaskmaster');
       
-      // Загружаем список сотрудников для выбора бригадира
-      async function loadEmployees() {
+      // Загружаем список пользователей-бригадиров
+      async function loadTaskmasters() {
         try {
-          const response = await fetch('/employees/list-all');
+          const response = await fetch('/users/by-role/Бригадир');
           const data = await response.json();
           taskmasterSelect.innerHTML = '<option value="">Выберите бригадира</option>';
-          data.forEach(employee => {
+          data.forEach(user => {
             const option = document.createElement('option');
-            option.value = employee.id;
-            option.textContent = `${employee.fio} (${employee.position_d || 'без должности'})`;
+            option.value = user.id;
+            option.textContent = `${user.fio || user.login} (${user.position_d || 'без должности'})`;
             taskmasterSelect.appendChild(option);
           });
         } catch (error) {
-          console.error('Error loading employees:', error);
+          console.error('Error loading taskmasters:', error);
         }
       }
       
       if (createBtn) {
         createBtn.addEventListener('click', function() {
-          loadEmployees();
+          loadTaskmasters();
           popup.style.display = 'block';
         });
       }
@@ -299,6 +297,50 @@ block content
       color: #666;
       font-size: 18px;
     }
+
+    .form-group select{
+      padding: 14px 16px;
+      border: 2px solid #EAEAEA;
+      border-radius: 8px;
+      font-size: 16px;
+      max-width: 520px;
+      background: #FFFFFF;
+      transition: all 0.3s ease;
+    }
+    
+    .form-group select:focus {
+      outline: none;
+      border-color: #6C5FBC;
+      box-shadow: 0 0 0 3px rgba(108, 95, 188, 0.1);
+    }
+    
+    .form-group select:disabled {
+      background-color: #F8F8F8;
+      color: #666;
+      cursor: not-allowed;
+    }  
+
+    .form-group select{
+      padding: 14px 16px;
+      border: 2px solid #EAEAEA;
+      border-radius: 8px;
+      font-size: 16px;
+      max-width: 520px;
+      background: #FFFFFF;
+      transition: all 0.3s ease;
+    }
+    
+    .form-group select:focus {
+      outline: none;
+      border-color: #6C5FBC;
+      box-shadow: 0 0 0 3px rgba(108, 95, 188, 0.1);
+    }
+    
+    .form-group select:disabled {
+      background-color: #F8F8F8;
+      color: #666;
+      cursor: not-allowed;
+    }  
     
     /* Модальное окно */
     .modal-window {
