@@ -19,7 +19,17 @@ block content
         h1.page-title= title
         .order-status
           span.status-badge(class=order.status.replace(/\s+/g, '-').toLowerCase())= order.status
-  
+
+      if can_view_orders
+        .order-actions
+          .buttons-container
+            button.primary-button#editOrderBtn(type="button")
+              i.fas.fa-edit
+              span Редактировать заказ
+            button.danger-button#deleteOrderBtn(type="button")
+              i.fas.fa-trash
+              span Удалить заказ
+
       // Основная информация о заказе
       .order-info-section
         h2.section-title Информация о заказе
@@ -115,7 +125,7 @@ block content
         .empty-state
           p В заказе нет услуг
 
-    // Документы заказа
+    // Документы заказа (возвращаем из исходного кода)
     .content-card
       .documents-section
         h2.section-title Документы заказа
@@ -182,7 +192,7 @@ block content
                         .detail-label Транспорт:
                         .detail-value
                           if wo.details.transport_model
-                            | #{wo.details.transport_model} (#{wo.details.transport_model})
+                            | #{wo.details.transport_model} (#{wo.details.transport_plate})
                           else
                             | Не назначен
                       
@@ -255,7 +265,7 @@ block content
                       if !sa.details.employee_sign && can_view_orders
                         button.success-button.sign-btn(data-doc-id=sa.doc.doc_id data-signer="employee") Подписать от сотрудника
 
-    // Модальное окно для создания заказа-наряда
+    // Модальные окна для документов (возвращаем из исходного кода)
     div#createWorkOrderModal.modal-window(style="display:none")
       .modal-content(style="max-width: 600px;")
         .modal-header
@@ -287,7 +297,6 @@ block content
           button.secondary-button#cancelWorkOrder Отмена
           button.primary-button#submitWorkOrder Создать заказ-наряд
 
-    // Модальное окно для создания акта об оказании услуг
     div#createServiceActModal.modal-window(style="display:none")
       .modal-content(style="max-width: 600px;")
         .modal-header
@@ -309,7 +318,6 @@ block content
           button.secondary-button#cancelServiceAct Отмена
           button.primary-button#submitServiceAct Создать акт
 
-    // Модальное окно для просмотра документа
     div#viewDocumentModal.modal-window(style="display:none")
       .modal-content(style="max-width: 800px; max-height: 90vh;")
         .modal-header
@@ -319,81 +327,462 @@ block content
           #documentContent
             // Содержимое документа будет загружено динамически
         .modal-footer
-          button.secondary-button#printDocumentBtn(onclick="printDocument()") Печать
+          button.secondary-button#printDocumentBtn Печать
           button.primary-button#closeDocumentBtn Закрыть
+
+    // Модальное окно редактирования заказа (аналогичное employees)
+    #editOrderModal.modal-window(style="display: none;")
+      .modal-content
+        .modal-header
+          h3 Редактирование заказа ##{order.id}
+          button.modal-close#editModalClose ×
+        .modal-body
+          form#editOrderForm
+            .form-section
+              h4 Основная информация
+              .form-grid
+                .form-group
+                  label(for="editStatus") Статус:
+                  select#editStatus(name="id_status")
+                    each status in statuses
+                      option(value=status.status selected=(status.status === order.id_status))= status.status
+                
+                .form-group
+                  label(for="editClient") Клиент:
+                  select#editClient(name="id_client")
+                    option(value="") -- Выберите клиента --
+                    // Клиенты будут загружены динамически
+                
+                .form-group
+                  label(for="editCreationDate") Дата создания:
+                  input#editCreationDate(type="date" name="creationdate" value=order.creationdate ? new Date(order.creationdate).toISOString().split('T')[0] : '')
+                
+                .form-group
+                  label(for="editPlannedDate") Плановая дата:
+                  input#editPlannedDate(type="date" name="planneddate" value=order.planneddate ? new Date(order.planneddate).toISOString().split('T')[0] : '')
+                
+                .form-group
+                  label(for="editTotalCost") Общая стоимость:
+                  input#editTotalCost(type="number" name="totalcost" value=order.totalcost || 0 readonly)
+                
+                .form-group.full-width
+                  label(for="editDescription") Описание:
+                  textarea#editDescription(name="description" rows="3")= order.description || ''
+            
+            .form-section
+              h4 Услуги в заказе
+              #servicesContainer
+                // Услуги будут загружены динамически
+              
+              .form-actions
+                button.secondary-button(type="button" onclick="addService()") + Добавить услугу
+        
+        .modal-footer
+          button.secondary-button#cancelEdit Отмена
+          button.primary-button#saveEdit Сохранить изменения
+
+    // Модальное окно для удаления (аналогичное employees)
+    #deleteConfirmModal.modal-window(style="display: none;")
+      .modal-content
+        .modal-header
+          h3 Подтверждение удаления
+          button.modal-close#deleteModalClose ×
+        .modal-body
+          .warning-message
+            .warning-icon ⚠️
+            .warning-text
+              h4 Вы уверены, что хотите удалить заказ?
+              p
+                strong Заказ ##{order.id} для #{order.client_fio}
+              p Это действие нельзя отменить. Все данные заказа будут удалены безвозвратно.
+        .modal-footer
+          button.secondary-button#cancelDelete Отмена
+          button.danger-button#confirmDelete Удалить
 
   script.
     document.addEventListener('DOMContentLoaded', function() {
+      // ============ ПЕРЕМЕННЫЕ ============
       const orderId = #{order.id};
+      let clientsList = [];
+      let servicesList = [];
+      let currentServices = [];
       
-      // Элементы модальных окон
+      // Элементы редактирования
+      const editOrderBtn = document.getElementById('editOrderBtn');
+      const editOrderModal = document.getElementById('editOrderModal');
+      const editModalClose = document.getElementById('editModalClose');
+      const cancelEditBtn = document.getElementById('cancelEdit');
+      const saveEditBtn = document.getElementById('saveEdit');
+      const editForm = document.getElementById('editOrderForm');
+      
+      // Элементы удаления
+      const deleteOrderBtn = document.getElementById('deleteOrderBtn');
+      const deleteModal = document.getElementById('deleteConfirmModal');
+      const deleteModalClose = document.getElementById('deleteModalClose');
+      const cancelDeleteBtn = document.getElementById('cancelDelete');
+      const confirmDeleteBtn = document.getElementById('confirmDelete');
+      
+      // Элементы для документов
       const createWorkOrderBtn = document.getElementById('createWorkOrderBtn');
       const createServiceActBtn = document.getElementById('createServiceActBtn');
       const createWorkOrderModal = document.getElementById('createWorkOrderModal');
       const createServiceActModal = document.getElementById('createServiceActModal');
       const viewDocumentModal = document.getElementById('viewDocumentModal');
-      
-      // Кнопки закрытия
       const closeWorkOrderModal = document.getElementById('closeWorkOrderModal');
       const closeServiceActModal = document.getElementById('closeServiceActModal');
-      const closeViewDocumentModal = document.getElementById('closeViewDocumentModal');
       const cancelWorkOrder = document.getElementById('cancelWorkOrder');
       const cancelServiceAct = document.getElementById('cancelServiceAct');
+      const submitWorkOrder = document.getElementById('submitWorkOrder');
+      const submitServiceAct = document.getElementById('submitServiceAct');
       
-      // Формы
-      const workOrderForm = document.getElementById('workOrderForm');
-      const serviceActForm = document.getElementById('serviceActForm');
-      
-      // Создание заказа-наряда
-      if (createWorkOrderBtn) {
-        createWorkOrderBtn.addEventListener('click', function() {
-          createWorkOrderModal.style.display = 'block';
-        });
-      }
-      
-      // Создание акта об оказании услуг
-      if (createServiceActBtn) {
-        createServiceActBtn.addEventListener('click', function() {
-          createServiceActModal.style.display = 'block';
-        });
-      }
+      // ============ ФУНКЦИИ ============
       
       // Закрытие модальных окон
-      function closeAllModals() {
-        createWorkOrderModal.style.display = 'none';
-        createServiceActModal.style.display = 'none';
-        viewDocumentModal.style.display = 'none';
+      function closeModal(modal) {
+        if (modal) {
+          modal.style.display = 'none';
+          document.body.style.overflow = 'auto';
+        }
       }
       
-      if (closeWorkOrderModal) closeWorkOrderModal.addEventListener('click', closeAllModals);
-      if (closeServiceActModal) closeServiceActModal.addEventListener('click', closeAllModals);
-      if (closeViewDocumentModal) closeViewDocumentModal.addEventListener('click', closeAllModals);
-      if (cancelWorkOrder) cancelWorkOrder.addEventListener('click', closeAllModals);
-      if (cancelServiceAct) cancelServiceAct.addEventListener('click', closeAllModals);
-      
-      // Закрытие по клику вне окна
-      window.addEventListener('click', function(event) {
-        if (event.target.classList.contains('modal-window')) {
-          closeAllModals();
+      // Открытие модальных окон
+      function openModal(modal) {
+        if (modal) {
+          modal.style.display = 'flex';
+          document.body.style.overflow = 'hidden';
         }
-      });
+      }
       
-      // Закрытие по ESC
-      document.addEventListener('keydown', function(event) {
-        if (event.key === 'Escape') {
-          closeAllModals();
+      // Показать/скрыть индикатор загрузки
+      function toggleButtonLoading(button, isLoading, loadingText = 'Загрузка...') {
+        if (isLoading) {
+          button.disabled = true;
+          const spinner = '<span class="loading-spinner"></span>';
+          button.innerHTML = spinner + loadingText;
+        } else {
+          button.disabled = false;
+          button.innerHTML = button.dataset.originalText || button.textContent;
         }
-      });
+      }
       
-      // Отправка формы заказа-наряда
-      if (document.getElementById('submitWorkOrder')) {
-        document.getElementById('submitWorkOrder').addEventListener('click', async function() {
-          const formData = new FormData(workOrderForm);
+      // Загрузка данных для редактирования
+      async function loadEditData() {
+        try {
+          const response = await fetch(`/orders/${orderId}/edit-data`);
+          const data = await response.json();
+          
+          if (data.error) {
+            throw new Error(data.error);
+          }
+          
+          // Сохраняем списки
+          clientsList = data.clients || [];
+          servicesList = data.allServices || [];
+          currentServices = data.services || [];
+          
+          // Заполняем клиентов
+          const clientSelect = document.getElementById('editClient');
+          clientSelect.innerHTML = '<option value="">-- Выберите клиента --</option>';
+          
+          clientsList.forEach(client => {
+            const option = document.createElement('option');
+            option.value = client.id;
+            option.textContent = client.fio;
+            option.selected = client.id == data.order.id_client;
+            clientSelect.appendChild(option);
+          });
+          
+          // Отображаем услуги
+          renderServices(currentServices);
+          
+        } catch (error) {
+          console.error('Error loading edit data:', error);
+          alert('Ошибка загрузки данных: ' + error.message);
+        }
+      }
+      
+      // Отображение услуг в форме
+      function renderServices(services) {
+        const container = document.getElementById('servicesContainer');
+        container.innerHTML = '';
+        
+        services.forEach((service, index) => {
+          const serviceDiv = document.createElement('div');
+          serviceDiv.className = 'service-item';
+          serviceDiv.innerHTML = `
+            <div class="service-row">
+              <div class="form-group">
+                <label>Услуга:</label>
+                <select name="services[${index}][id]" class="service-select" onchange="updateServicePrice(this)">
+                  <option value="">-- Выберите услугу --</option>
+                  ${servicesList.map(s => 
+                    `<option value="${s.id}" ${s.id == service.id_serv ? 'selected' : ''}>${s.label}</option>`
+                  ).join('')}
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Цена:</label>
+                <input type="number" name="services[${index}][price]" value="${service.price || 0}" 
+                       class="service-price" onchange="calculateTotal()">
+              </div>
+              <button type="button" class="danger-button small" onclick="removeService(${index})">×</button>
+            </div>
+          `;
+          container.appendChild(serviceDiv);
+        });
+        
+        calculateTotal();
+      }
+      
+      // Добавление новой услуги
+      window.addService = function() {
+        const container = document.getElementById('servicesContainer');
+        const index = container.children.length;
+        
+        const serviceDiv = document.createElement('div');
+        serviceDiv.className = 'service-item';
+        serviceDiv.innerHTML = `
+          <div class="service-row">
+            <div class="form-group">
+              <label>Услуга:</label>
+              <select name="services[${index}][id]" class="service-select" onchange="updateServicePrice(this)">
+                <option value="">-- Выберите услугу --</option>
+                ${servicesList.map(s => 
+                  `<option value="${s.id}">${s.label}</option>`
+                ).join('')}
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Цена:</label>
+              <input type="number" name="services[${index}][price]" value="0" 
+                     class="service-price" onchange="calculateTotal()">
+            </div>
+            <button type="button" class="danger-button small" onclick="removeService(${index})">×</button>
+          </div>
+        `;
+        container.appendChild(serviceDiv);
+      }
+      
+      // Удаление услуги
+      window.removeService = function(index) {
+        if (confirm('Удалить эту услугу из заказа?')) {
+          const container = document.getElementById('servicesContainer');
+          const serviceItem = container.querySelector(`.service-item:nth-child(${index + 1})`);
+          if (serviceItem) {
+            serviceItem.remove();
+            calculateTotal();
+          }
+        }
+      }
+      
+      // Обновление цены услуги при выборе
+      window.updateServicePrice = async function(select) {
+        const serviceId = select.value;
+        const priceInput = select.closest('.service-row').querySelector('.service-price');
+        
+        if (serviceId) {
+          try {
+            const response = await fetch(`/orders/services/${serviceId}/price`);
+            const data = await response.json();
+            
+            if (data.price) {
+              priceInput.value = data.price;
+              calculateTotal();
+            }
+          } catch (error) {
+            console.error('Error loading service price:', error);
+          }
+        }
+      }
+      
+      // Расчет общей стоимости
+      window.calculateTotal = function() {
+        const priceInputs = document.querySelectorAll('.service-price');
+        let total = 0;
+        
+        priceInputs.forEach(input => {
+          total += parseFloat(input.value) || 0;
+        });
+        
+        // Умножаем на площадь (если есть)
+        const objectSquare = #{order.object_square} || 0;
+        if (objectSquare > 0) {
+          total = total * objectSquare;
+        }
+        
+        document.getElementById('editTotalCost').value = total;
+      }
+      
+      // ============ ОБРАБОТЧИКИ РЕДАКТИРОВАНИЯ ============
+      
+      // Открытие модального окна редактирования
+      if (editOrderBtn) {
+        editOrderBtn.addEventListener('click', async function() {
+          await loadEditData();
+          openModal(editOrderModal);
+        });
+      }
+      
+      // Закрытие модального окна редактирования
+      if (editModalClose) {
+        editModalClose.addEventListener('click', () => closeModal(editOrderModal));
+      }
+      
+      if (cancelEditBtn) {
+        cancelEditBtn.addEventListener('click', () => closeModal(editOrderModal));
+      }
+      
+      // Сохранение изменений - ИСПРАВЛЕННАЯ ВЕРСИЯ
+      if (saveEditBtn) {
+        saveEditBtn.addEventListener('click', async function() {
+          // Собираем данные из формы
+          const formData = {
+            order: {
+              id_status: document.getElementById('editStatus').value,
+              id_client: document.getElementById('editClient').value,
+              creationdate: document.getElementById('editCreationDate').value,
+              planneddate: document.getElementById('editPlannedDate').value || null,
+              totalcost: parseFloat(document.getElementById('editTotalCost').value) || 0,
+              description: document.getElementById('editDescription').value.trim()
+            },
+            services: []
+          };
+          
+          // Собираем услуги - ВАЖНО: если нет услуг, отправляем пустой массив
+          const serviceItems = document.querySelectorAll('.service-item');
+          serviceItems.forEach((item, index) => {
+            const serviceId = item.querySelector(`[name="services[${index}][id]"]`).value;
+            const price = item.querySelector(`[name="services[${index}][price]"]`).value;
+            
+            if (serviceId && price) {
+              formData.services.push({
+                id: parseInt(serviceId),
+                price: parseFloat(price)
+              });
+            }
+          });
+          
+          // Валидация - только клиент обязателен
+          if (!formData.order.id_client) {
+            alert('Выберите клиента');
+            return;
+          }
+          
+          // Показываем загрузку
+          toggleButtonLoading(saveEditBtn, true, 'Сохранение...');
+          
+          try {
+            const response = await fetch(`/orders/update/${orderId}`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(formData)
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+              alert('Заказ успешно обновлен');
+              closeModal(editOrderModal);
+              location.reload();
+            } else {
+              alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+            }
+            
+          } catch (error) {
+            console.error('Error:', error);
+            alert('Ошибка при обновлении заказа');
+          } finally {
+            toggleButtonLoading(saveEditBtn, false);
+          }
+        });
+      }
+      
+      // ============ ОБРАБОТЧИКИ УДАЛЕНИЯ ============
+      
+      // Открытие модального окна удаления
+      if (deleteOrderBtn) {
+        deleteOrderBtn.addEventListener('click', () => openModal(deleteModal));
+      }
+      
+      // Закрытие модального окна удаления
+      if (deleteModalClose) {
+        deleteModalClose.addEventListener('click', () => closeModal(deleteModal));
+      }
+      
+      if (cancelDeleteBtn) {
+        cancelDeleteBtn.addEventListener('click', () => closeModal(deleteModal));
+      }
+      
+      // Подтверждение удаления
+      if (confirmDeleteBtn) {
+        confirmDeleteBtn.addEventListener('click', async function() {
+          toggleButtonLoading(confirmDeleteBtn, true, 'Удаление...');
+          
+          try {
+            const response = await fetch(`/orders/delete/${orderId}`, {
+              method: 'DELETE',
+              headers: {
+                'Content-Type': 'application/json',
+              }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+              alert('Заказ успешно удален');
+              window.location.href = '/orders';
+            } else {
+              alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+              closeModal(deleteModal);
+            }
+            
+          } catch (error) {
+            console.error('Error:', error);
+            alert('Ошибка при удалении заказа');
+          } finally {
+            toggleButtonLoading(confirmDeleteBtn, false);
+          }
+        });
+      }
+      
+      // ============ ОБРАБОТЧИКИ ДОКУМЕНТОВ ============
+      
+      // Открытие модальных окон для документов
+      if (createWorkOrderBtn) {
+        createWorkOrderBtn.addEventListener('click', () => openModal(createWorkOrderModal));
+      }
+      
+      if (createServiceActBtn) {
+        createServiceActBtn.addEventListener('click', () => openModal(createServiceActModal));
+      }
+      
+      // Закрытие модальных окон документов
+      if (closeWorkOrderModal) {
+        closeWorkOrderModal.addEventListener('click', () => closeModal(createWorkOrderModal));
+      }
+      
+      if (closeServiceActModal) {
+        closeServiceActModal.addEventListener('click', () => closeModal(createServiceActModal));
+      }
+      
+      if (cancelWorkOrder) {
+        cancelWorkOrder.addEventListener('click', () => closeModal(createWorkOrderModal));
+      }
+      
+      if (cancelServiceAct) {
+        cancelServiceAct.addEventListener('click', () => closeModal(createServiceActModal));
+      }
+      
+      // Создание заказа-наряда
+      if (submitWorkOrder) {
+        submitWorkOrder.addEventListener('click', async function() {
+          const formData = new FormData(document.getElementById('workOrderForm'));
           const data = Object.fromEntries(formData.entries());
           
           const submitBtn = this;
-          submitBtn.disabled = true;
-          submitBtn.textContent = 'Создание...';
+          toggleButtonLoading(submitBtn, true, 'Создание...');
           
           try {
             const response = await fetch(`/orders/${orderId}/documents/work-order`, {
@@ -408,31 +797,29 @@ block content
             
             if (result.success) {
               alert(result.message);
-              closeAllModals();
-              location.reload(); // Перезагружаем страницу для отображения нового документа
+              closeModal(createWorkOrderModal);
+              location.reload();
             } else {
               alert('Ошибка: ' + result.error);
-              submitBtn.disabled = false;
-              submitBtn.textContent = 'Создать заказ-наряд';
             }
+            
           } catch (error) {
             console.error('Error:', error);
             alert('Ошибка при создании документа');
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Создать заказ-наряд';
+          } finally {
+            toggleButtonLoading(submitBtn, false);
           }
         });
       }
       
-      // Отправка формы акта об оказании услуг
-      if (document.getElementById('submitServiceAct')) {
-        document.getElementById('submitServiceAct').addEventListener('click', async function() {
-          const formData = new FormData(serviceActForm);
+      // Создание акта об оказании услуг
+      if (submitServiceAct) {
+        submitServiceAct.addEventListener('click', async function() {
+          const formData = new FormData(document.getElementById('serviceActForm'));
           const data = Object.fromEntries(formData.entries());
           
           const submitBtn = this;
-          submitBtn.disabled = true;
-          submitBtn.textContent = 'Создание...';
+          toggleButtonLoading(submitBtn, true, 'Создание...');
           
           try {
             const response = await fetch(`/orders/${orderId}/documents/service-act`, {
@@ -447,18 +834,17 @@ block content
             
             if (result.success) {
               alert(result.message);
-              closeAllModals();
+              closeModal(createServiceActModal);
               location.reload();
             } else {
               alert('Ошибка: ' + result.error);
-              submitBtn.disabled = false;
-              submitBtn.textContent = 'Создать акт';
             }
+            
           } catch (error) {
             console.error('Error:', error);
             alert('Ошибка при создании документа');
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Создать акт';
+          } finally {
+            toggleButtonLoading(submitBtn, false);
           }
         });
       }
@@ -470,7 +856,6 @@ block content
           const docType = this.dataset.type;
           
           try {
-            // Получаем данные документа
             const response = await fetch(`/orders/${orderId}/documents/${docId}/view`);
             if (!response.ok) {
               throw new Error('Документ не найден');
@@ -481,7 +866,7 @@ block content
             document.getElementById('documentModalTitle').textContent = 
               docType === 'work-order' ? 'Заказ-наряд' : 'Акт об оказании услуг';
             document.getElementById('documentContent').innerHTML = docContent;
-            viewDocumentModal.style.display = 'block';
+            openModal(viewDocumentModal);
             
           } catch (error) {
             console.error('Error loading document:', error);
@@ -524,7 +909,7 @@ block content
       });
       
       // Функция печати документа
-      window.printDocument = function() {
+      document.getElementById('printDocumentBtn')?.addEventListener('click', function() {
         const printContent = document.getElementById('documentContent').innerHTML;
         const originalContent = document.body.innerHTML;
         
@@ -532,7 +917,68 @@ block content
         window.print();
         document.body.innerHTML = originalContent;
         location.reload();
-      };
+      });
+      
+      // Закрытие модального окна просмотра документа
+      document.getElementById('closeDocumentBtn')?.addEventListener('click', () => closeModal(viewDocumentModal));
+      
+      // Закрытие по клику вне окна
+      document.querySelectorAll('.modal-window').forEach(modal => {
+        modal.addEventListener('click', function(event) {
+          if (event.target === modal) {
+            closeModal(modal);
+          }
+        });
+      });
+      
+      // Закрытие по ESC
+      document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+          document.querySelectorAll('.modal-window').forEach(modal => closeModal(modal));
+        }
+      });
+      
+      // Стиль для индикатора загрузки
+      const style = document.createElement('style');
+      style.textContent = `
+        .service-row {
+          display: flex;
+          gap: 10px;
+          align-items: flex-end;
+          margin-bottom: 10px;
+        }
+        
+        .service-row .form-group {
+          flex: 1;
+          margin-bottom: 0;
+        }
+        
+        .small {
+          padding: 5px 10px;
+          font-size: 14px;
+        }
+        
+        .loading-spinner {
+          display: inline-block;
+          width: 16px;
+          height: 16px;
+          border: 2px solid rgba(255,255,255,.3);
+          border-radius: 50%;
+          border-top-color: #fff;
+          animation: spin 1s ease-in-out infinite;
+          margin-right: 8px;
+          vertical-align: middle;
+        }
+        
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        
+        .full-width {
+          grid-column: 1 / -1;
+        }
+      `;
+      document.head.appendChild(style);
     });
 
 
@@ -1420,6 +1866,157 @@ block content
 
     .form-note p {
       margin: 0;
+    }
+
+    .modal-window {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      padding: 20px;
+      box-sizing: border-box;
+      overflow-y: auto;
+    }
+
+    .modal-content {
+      background: #FFFFFF;
+      border-radius: 12px;
+      width: 100%;
+      max-width: min(800px, 95vw);
+      max-height: min(90vh, 800px);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+      animation: modalAppear 0.3s ease-out;
+    }
+
+    @keyframes modalAppear {
+      from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px;
+      border-bottom: 1px solid #EAEAEA;
+      background-color: #6C5FBC;
+      color: white;
+      flex-shrink: 0;
+    }
+
+    .modal-header h3 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    .modal-close {
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: white;
+      font-size: 24px;
+      cursor: pointer;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background-color 0.3s ease;
+    }
+
+    .modal-close:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .modal-body {
+      padding: 20px;
+      overflow-y: auto;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .modal-footer {
+      padding: 20px;
+      border-top: 1px solid #EAEAEA;
+      display: flex;
+      justify-content: flex-end;
+      gap: 15px;
+      flex-shrink: 0;
+    }
+
+    /* Специальные стили для модального окна просмотра документа */
+    #viewDocumentModal .modal-content {
+      max-width: min(90vw, 1200px);
+      max-height: min(95vh, 1000px);
+    }
+
+    #documentContent {
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      padding: 0;
+    }
+
+    /* Адаптивные стили для мобильных устройств */
+    @media (max-width: 768px) {
+      .modal-window {
+        padding: 10px;
+      }
+    
+      .modal-content {
+        max-width: 100%;
+        max-height: 95vh;
+        border-radius: 8px;
+      }
+    
+      .modal-header {
+        padding: 15px;
+      }
+    
+      .modal-header h3 {
+        font-size: 18px;
+      }
+    
+      .modal-body {
+        padding: 15px;
+      }
+    
+      .modal-footer {
+        padding: 15px;
+        flex-direction: column;
+      }
+    
+      .modal-footer button {
+        width: 100%;
+      }
+    
+      .form-group select,
+      .form-group input,
+      .form-group textarea {
+        max-width: 100% !important;
+      }
+    }
+
+    /* Предотвращение сужения экрана */
+    body.modal-open {
+      overflow: hidden;
+      padding-right: 15px; /* Компенсация для скроллбара */
     }
 
     /* Документ для печати */

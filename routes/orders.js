@@ -183,6 +183,7 @@ router.post('/create', async function(req, res) {
 });
 
 // Просмотр деталей заказа с документами
+// В orders.js обновляем маршрут просмотра заказа:
 router.get('/:id', async function(req, res) {
     let id = parseInt(req.params.id);
     if (isNaN(id)) return res.status(400).send('Неверный ID заказа');
@@ -191,7 +192,7 @@ router.get('/:id', async function(req, res) {
     var can_view_orders = user && user.id_role ? true : false
 
     try {
-        // Получаем данные заказа
+        // Получаем данные заказа (существующий код)
         let order = await req.db.oneOrNone(`
             SELECT
                 orders.id AS id,
@@ -218,7 +219,7 @@ router.get('/:id', async function(req, res) {
 
         if (!order) return res.status(404).send('Заказ не найден');
 
-        // Получаем услуги в заказе
+        // Получаем услуги в заказе (существующий код)
         let orderItems = await req.db.any(`
             SELECT
                 orders_items.id AS item_id,
@@ -230,7 +231,7 @@ router.get('/:id', async function(req, res) {
             WHERE orders_items.id_order = ${id}
         `)
 
-        // Получаем документы заказа
+        // Получаем документы заказа (существующий код)
         let docs = await req.db.any(`
             SELECT
                 docs.id AS doc_id,
@@ -242,7 +243,17 @@ router.get('/:id', async function(req, res) {
             ORDER BY docs.creationdate DESC
         `)
 
-        // Получаем документы "Заказ-наряд" с дополнительной информацией
+        // Получаем все клиенты для модального окна редактирования (ДОБАВЛЯЕМ)
+        let allClients = await req.db.any(`
+            SELECT id, fio FROM clients ORDER BY fio
+        `)
+        
+        // Получаем все услуги для модального окна редактирования (ДОБАВЛЯЕМ)
+        let allServices = await req.db.any(`
+            SELECT id, label, description FROM services ORDER BY label
+        `)
+
+        // Получаем документы "Заказ-наряд" с дополнительной информацией (существующий код)
         let workOrders = [];
         for (let doc of docs.filter(d => d.doc_type === 'Заказ-наряд')) {
             let workOrder = await req.db.oneOrNone(`
@@ -289,7 +300,7 @@ router.get('/:id', async function(req, res) {
             }
         }
 
-        // Получаем документы "Акт об оказании услуг" с дополнительной информацией
+        // Получаем документы "Акт об оказании услуг" с дополнительной информацией (существующий код)
         let serviceActs = [];
         for (let doc of docs.filter(d => d.doc_type === 'Акт об оказании услуг')) {
             let serviceAct = await req.db.oneOrNone(`
@@ -310,7 +321,7 @@ router.get('/:id', async function(req, res) {
             }
         }
 
-        // Получаем список всех бригад для формирования документов
+        // Получаем список всех бригад для формирования документов (существующий код)
         let teams = await req.db.any(`
             SELECT 
                 teams.id AS id,
@@ -321,7 +332,7 @@ router.get('/:id', async function(req, res) {
             ORDER BY teams.id
         `)
 
-        // Получаем список всех транспортных средств (исправлено: model вместо name)
+        // Получаем список всех транспортных средств (существующий код)
         let transports = await req.db.any(`
             SELECT 
                 id,
@@ -331,20 +342,32 @@ router.get('/:id', async function(req, res) {
             ORDER BY model
         `)
 
-        // Получаем список всех статусов
+        // Получаем список всех статусов (существующий код)
         let statuses = await req.db.any(`SELECT unnest(enum_range(NULL::order_statuses)) AS status`)
 
-        // Форматируем даты для отображения
+        // Форматируем даты для отображения (существующий код)
         const formatDate = (dateString) => {
             if (!dateString) return '';
             const date = new Date(dateString);
             return date.toLocaleDateString('ru-RU');
         };
 
+        // Преобразуем услуги для передачи в PUG (ДОБАВЛЯЕМ)
+        const servicesForEdit = orderItems.map(item => ({
+            id: item.item_id,
+            id_serv: item.item_id,
+            label: item.service_label,
+            price: item.item_price,
+            description: item.service_description
+        }));
+
         res.render('orders/view', { 
             title: 'Заказ #' + order.id, 
             order: order,
             orderItems: orderItems,
+            servicesForEdit: JSON.stringify(servicesForEdit), // ДОБАВЛЯЕМ
+            allClients: allClients, // ДОБАВЛЯЕМ
+            allServices: allServices, // ДОБАВЛЯЕМ
             workOrders: workOrders,
             serviceActs: serviceActs,
             teams: teams,
@@ -1347,131 +1370,55 @@ router.post('/objects/create', async function(req, res) {
 
 // Обновление заказа
 router.post('/update/:id', async function(req, res) {
-    let id = parseInt(req.params.id);
-    let order = req.body;
-    
-    if (!order.id_client || !order.totalCost) {
-        return res.send({msg: 'Обязательные поля: клиент и общая стоимость'});
-    }
-
-    try {
-        const creationDate = order.creationDate ? new Date(order.creationDate) : null;
-        const plannedDate = order.plannedDate ? new Date(order.plannedDate) : null;
-        
-        await req.db.none(`
-            UPDATE orders SET 
-                id_status = $1::order_statuses,
-                creationDate = $2,
-                id_client = $3,
-                totalCost = $4,
-                plannedDate = $5,
-                description = $6
-            WHERE id = $7
-        `, [
-            order.status || 'Новый',
-            creationDate,
-            parseInt(order.id_client),
-            parseInt(order.totalCost),
-            plannedDate,
-            order.description || null,
-            id
-        ]);
-        
-        res.send({msg: ''});
-    } catch (error) {
-        console.error('Update error:', error);
-        res.send({msg: 'Ошибка при обновлении заказа: ' + error.message});
-    }
-});
-
-router.get('/edit/:id', async function(req, res) {
-    try {
-        let id = parseInt(req.params.id);
-        if (isNaN(id)) return res.status(400).send('Неверный ID заказа');
-
-        // Получаем данные заказа
-        let order = await req.db.oneOrNone(`
-            SELECT * FROM orders WHERE id = $1
-        `, [id]);
-
-        if (!order) return res.status(404).send('Заказ не найден');
-
-        // Получаем список клиентов
-        let clients = await req.db.any('SELECT id, fio FROM clients ORDER BY fio');
-        
-        // Получаем все статусы
-        let statuses = await req.db.any(`SELECT unnest(enum_range(NULL::order_statuses)) AS status`);
-        
-        // Получаем услуги заказа
-        let orderServices = await req.db.any(`
-            SELECT 
-                orders_items.id_serv,
-                orders_items.price,
-                services.label
-            FROM orders_items
-            LEFT JOIN services ON orders_items.id_serv = services.id
-            WHERE orders_items.id_order = $1
-        `, [id]);
-        
-        // Получаем все услуги для выбора
-        let allServices = await req.db.any('SELECT id, label FROM services ORDER BY label');
-
-        res.render('orders/edit', {
-            title: 'Редактирование заказа #' + id,
-            order: order,
-            clients: clients,
-            statuses: statuses,
-            orderServices: orderServices,
-            allServices: allServices
-        });
-        
-    } catch (error) {
-        console.error('Error loading order for edit:', error);
-        res.status(500).send('Ошибка загрузки данных заказа');
-    }
-});
-
-// Обновленный маршрут для редактирования заказа с услугами
-router.post('/edit/:id', async function(req, res) {
     try {
         const orderId = parseInt(req.params.id);
-        const { order, services, objectSquare } = req.body;
+        const { order, services } = req.body;
+        
+        console.log('Update order request:', orderId, order, services);
         
         if (isNaN(orderId)) {
             return res.json({ success: false, error: 'Неверный ID заказа' });
         }
         
-        // Валидация
+        // Валидация - проверяем только основные поля
         if (!order.id_client) {
             return res.json({ success: false, error: 'Выберите клиента' });
         }
         
-        if (!services || services.length === 0) {
-            return res.json({ success: false, error: 'Добавьте хотя бы одну услугу' });
-        }
-        
-        // Проверяем существование заказа
-        const orderExists = await req.db.oneOrNone('SELECT id FROM orders WHERE id = $1', [orderId]);
-        if (!orderExists) {
-            return res.json({ success: false, error: 'Заказ не найден' });
+        // Если нет услуг в запросе, получаем текущие услуги из БД
+        let servicesToUpdate = services;
+        if (!servicesToUpdate || servicesToUpdate.length === 0) {
+            // Получаем текущие услуги заказа из базы данных
+            const existingServices = await req.db.any(`
+                SELECT id_serv, price 
+                FROM orders_items 
+                WHERE id_order = $1
+            `, [orderId]);
+            
+            if (existingServices.length === 0) {
+                return res.json({ success: false, error: 'В заказе должны быть услуги' });
+            }
+            
+            servicesToUpdate = existingServices.map(s => ({
+                id: s.id_serv,
+                price: s.price
+            }));
         }
         
         // Рассчитываем стоимость
-        let servicesTotal = 0;
-        services.forEach(service => {
-            servicesTotal += parseInt(service.price) || 0;
+        let totalCost = 0;
+        servicesToUpdate.forEach(service => {
+            totalCost += parseInt(service.price) || 0;
         });
         
-        let totalCost = 0;
-        if (objectSquare && objectSquare > 0) {
-            totalCost = servicesTotal * parseInt(objectSquare);
-        } else {
-            totalCost = servicesTotal;
+        // Умножаем на площадь, если есть
+        const orderInfo = await req.db.oneOrNone('SELECT id_clean_object FROM orders WHERE id = $1', [orderId]);
+        if (orderInfo && orderInfo.id_clean_object) {
+            const cleanObject = await req.db.oneOrNone('SELECT squaremeterage FROM clean_objects WHERE id = $1', [orderInfo.id_clean_object]);
+            if (cleanObject && cleanObject.squaremeterage) {
+                totalCost = totalCost * cleanObject.squaremeterage;
+            }
         }
-        
-        // Преобразуем даты
-        const creationDate = order.creationDate ? new Date(order.creationDate) : new Date();
-        const plannedDate = order.plannedDate ? new Date(order.plannedDate) : null;
         
         // Используем транзакцию
         await req.db.tx(async t => {
@@ -1483,17 +1430,15 @@ router.post('/edit/:id', async function(req, res) {
                     id_client = $3,
                     totalcost = $4,
                     planneddate = $5,
-                    description = $6,
-                    id_clean_object = $7
-                WHERE id = $8
+                    description = $6
+                WHERE id = $7
             `, [
                 order.id_status || 'Новый',
-                creationDate,
+                order.creationdate ? new Date(order.creationdate) : new Date(),
                 parseInt(order.id_client),
                 totalCost,
-                plannedDate,
+                order.planneddate ? new Date(order.planneddate) : null,
                 order.description || null,
-                order.id_clean_object ? parseInt(order.id_clean_object) : null,
                 orderId
             ]);
             
@@ -1501,11 +1446,13 @@ router.post('/edit/:id', async function(req, res) {
             await t.none('DELETE FROM orders_items WHERE id_order = $1', [orderId]);
             
             // Добавляем новые услуги
-            for (const service of services) {
-                await t.none(`
-                    INSERT INTO orders_items (id_order, id_serv, price)
-                    VALUES ($1, $2, $3)
-                `, [orderId, parseInt(service.id), parseInt(service.price)]);
+            for (const service of servicesToUpdate) {
+                if (service.id > 0) {
+                    await t.none(`
+                        INSERT INTO orders_items (id_order, id_serv, price)
+                        VALUES ($1, $2, $3)
+                    `, [orderId, parseInt(service.id), parseInt(service.price)]);
+                }
             }
         });
         
@@ -1514,6 +1461,63 @@ router.post('/edit/:id', async function(req, res) {
     } catch (error) {
         console.error('Error updating order:', error);
         res.status(500).json({ success: false, error: 'Ошибка обновления заказа: ' + error.message });
+    }
+});
+
+// Маршрут для получения данных заказа для редактирования
+// Получение данных заказа для редактирования
+router.get('/:id/edit-data', async function(req, res) {
+    try {
+        const orderId = parseInt(req.params.id);
+        
+        // Проверяем существование заказа
+        const order = await req.db.oneOrNone(`
+            SELECT 
+                orders.*,
+                clients.fio AS client_fio,
+                clean_objects.address AS object_address
+            FROM orders
+            LEFT JOIN clients ON orders.id_client = clients.id
+            LEFT JOIN clean_objects ON orders.id_clean_object = clean_objects.id
+            WHERE orders.id = $1
+        `, [orderId]);
+        
+        if (!order) {
+            return res.status(404).json({ error: 'Заказ не найден' });
+        }
+        
+        // Получаем услуги заказа
+        const services = await req.db.any(`
+            SELECT 
+                orders_items.id_serv,
+                orders_items.price,
+                services.label,
+                services.description
+            FROM orders_items
+            LEFT JOIN services ON orders_items.id_serv = services.id
+            WHERE orders_items.id_order = $1
+        `, [orderId]);
+        
+        // Получаем всех клиентов
+        const clients = await req.db.any(`
+            SELECT id, fio FROM clients ORDER BY fio
+        `);
+        
+        // Получаем все статусы
+        const statuses = await req.db.any(`
+            SELECT unnest(enum_range(NULL::order_statuses)) AS status
+        `);
+        
+        res.json({ 
+            order: order, 
+            services: services,
+            clients: clients,
+            statuses: statuses
+        });
+        
+    } catch (error) {
+        console.error('Error loading order edit data:', error);
+        res.status(500).json({ error: 'Ошибка загрузки данных заказа' });
     }
 });
 
@@ -1559,29 +1563,6 @@ router.delete('/delete/:id', async function(req, res) {
     } catch (error) {
         console.error('Delete error:', error);
         res.json({ success: false, error: 'Ошибка при удалении заказа: ' + error.message });
-    }
-});
-
-// Удаление заказа
-router.delete('/delete/:id', async function(req, res) {
-    let id = parseInt(req.params.id);
-    
-    if (isNaN(id)) return res.send({msg: 'Неверный ID заказа'});
-    
-    try {
-        const orderExists = await req.db.oneOrNone('SELECT id FROM orders WHERE id = $1', [id]);
-        if (!orderExists) return res.send({msg: 'Заказ не найден'});
-        
-        // Удаляем связанные записи
-        await req.db.none('DELETE FROM orders_items WHERE id_order = $1', [id]);
-        
-        // Удаляем заказ
-        await req.db.none('DELETE FROM orders WHERE id = $1', [id]);
-        
-        res.send({msg: ''});
-    } catch (error) {
-        console.error('Delete error:', error);
-        res.send({msg: 'Ошибка при удалении заказа: ' + error.message});
     }
 });
 

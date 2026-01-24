@@ -633,7 +633,7 @@ block content
         };
         
         if (!formData.fio || !formData.phone || !formData.type_l) {
-          alert('Заполните ФИО, телефон и тип лица');
+
           return;
         }
         
@@ -652,14 +652,14 @@ block content
           dataType: 'JSON'
         }).done(function(response) {
           if (response.msg === '') {
-            alert('Данные клиента успешно обновлены');
+
             window.location.reload();
           } else {
-            alert('Ошибка: ' + response.msg);
+
           }
         }).fail(function(xhr, status, error) {
           console.error('Error:', error);
-          alert('Ошибка при обновлении данных');
+
         }).always(function() {
           button.prop('disabled', false).text('Сохранить изменения');
         });
@@ -685,15 +685,15 @@ block content
           dataType: 'JSON'
         }).done(function(response) {
           if (response.msg === '') {
-            alert('Клиент успешно удалён');
+
             window.location.href = '/clients';
           } else {
-            alert('Ошибка: ' + response.msg);
+
             $('#deleteConfirmModal').hide();
           }
         }).fail(function(xhr, status, error) {
           console.error('Error:', error);
-          alert('Ошибка при удалении клиента');
+
         }).always(function() {
           button.prop('disabled', false).text('Удалить');
         });
@@ -737,14 +737,14 @@ block content
             dataType: 'JSON'
           }).done(function(response) {
             if (response.msg === '') {
-              alert('Объект успешно удалён');
+
               window.location.reload();
             } else {
-              alert('Ошибка: ' + response.msg);
+
             }
           }).fail(function(xhr, status, error) {
             console.error('Error:', error);
-            alert('Ошибка при удалении объекта');
+
           });
         }
       });
@@ -767,7 +767,7 @@ block content
         };
         
         if (!objectData.type_co || !objectData.address || !objectData.squaremeterage) {
-          alert('Заполните тип объекта, адрес и площадь');
+
           return;
         }
         
@@ -786,14 +786,14 @@ block content
           dataType: 'JSON'
         }).done(function(response) {
           if (response.msg === '') {
-            alert('Объект успешно сохранён');
+
             window.location.reload();
           } else {
-            alert('Ошибка: ' + response.msg);
+  
           }
         }).fail(function(xhr, status, error) {
           console.error('Error:', error);
-          alert('Ошибка при сохранении объекта');
+
         }).always(function() {
           button.prop('disabled', false).text('Сохранить');
         });

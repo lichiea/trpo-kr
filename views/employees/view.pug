@@ -194,14 +194,14 @@ block content
       // Валидация формы
       function validateFormData(formData) {
         if (!formData.fio || !formData.phone || !formData.position_d) {
-          alert('Пожалуйста, заполните обязательные поля (ФИО, телефон и должность)');
+
           return false;
         }
         
         if (formData.id_pol) {
           formData.id_pol = parseInt(formData.id_pol);
           if (isNaN(formData.id_pol)) {
-            alert('ID пользователя должно быть числом');
+
             return false;
           }
         }
@@ -224,7 +224,7 @@ block content
           
           // Простая валидация
           if (!formData.fio || !formData.phone || !formData.position_d) {
-            alert('Заполните ФИО, телефон и должность');
+
             return;
           }
           
@@ -232,7 +232,7 @@ block content
           if (formData.id_pol && formData.id_pol !== '') {
             formData.id_pol = parseInt(formData.id_pol);
             if (isNaN(formData.id_pol)) {
-              alert('ID пользователя должно быть числом');
+
               return;
             }
           } else {
@@ -256,7 +256,7 @@ block content
             const data = await response.json();
             
             if (data.msg === '') {
-              alert('Данные сотрудника успешно обновлены');
+
               // Обновляем текст на странице
               if (document.getElementById('viewFio')) {
                 document.getElementById('viewFio').textContent = formData.fio;
@@ -270,7 +270,7 @@ block content
             
           } catch (error) {
             console.error('Error:', error);
-            alert('Ошибка при обновлении данных');
+
           } finally {
             // Восстанавливаем кнопку
             saveButton.disabled = false;
@@ -284,7 +284,7 @@ block content
       if (deleteButton) {
         deleteButton.addEventListener('click', function() {
           if (isEditing) {
-            alert('Завершите редактирование перед удалением сотрудника');
+
             return;
           }
           
@@ -337,7 +337,7 @@ block content
             const data = await response.json();
             
             if (data.msg === '') {
-              alert('Сотрудник успешно удалён');
+
               // Перенаправляем на список сотрудников
               window.location.href = '/employees';
             } else {
@@ -347,7 +347,7 @@ block content
             
           } catch (error) {
             console.error('Error:', error);
-            alert('Ошибка при удалении сотрудника');
+
           } finally {
             toggleButtonLoading(confirmDeleteButton, false);
           }
